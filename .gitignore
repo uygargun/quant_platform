@@ -1,0 +1,63 @@
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Local agent/context handoff notes
+CLAUDE.md
+CONTEXT_SUMMARY.md
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+
+# Local SQLite state
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Data lake outputs and generated market data
+data/raw/
+data/silver/
+data/gold/
+data/cache/
+data/downloads/
+data/catalog.db
+data/.watermarks.json
+
+# Large/generated research artifacts
+storage/artifacts/
+storage/runs.db*
+*.parquet
+*.feather
+*.h5
+*.hdf5
+
+# Reports / notebooks output
+*.html
+*.png
+*.jpg
+*.jpeg
+*.svg
+*.pdf
+!docs/**/*.png
+!docs/**/*.jpg
+!docs/**/*.jpeg
+!docs/**/*.svg
