@@ -9,44 +9,89 @@ lineage-bound, and defensible before they are treated as deployable.
 
 ## What Is Included
 
-- Polars data lake with raw/silver/gold layers, catalog metadata, lineage, and snapshots
-- Pandas/Numba backtesting engine with holdings-based accounting
-- Strategy framework with SMA, RSI, and composable indicator strategies
-- Grid and Bayesian optimization
-- Purged walk-forward validation with embargo controls
-- Deflated Sharpe and multiple-testing-aware trial accounting
-- Block and circular-shift permutation tests
-- Regime diagnostics, Monte Carlo simulation, and risk controls
-- Experiment store with manifests, run status, metrics, trades, and equity artifacts
-- FastAPI service layer and Streamlit UI
+- **Data Layer** -- Polars data lake with raw/silver/gold layers, catalog metadata, lineage, snapshots, and schema validation
+- **Backtesting Engine** -- Pandas/Numba holdings-based accounting with next-open fills, intrabar stop-loss/take-profit, and multiple position modes
+- **Strategy Framework** -- SMA Cross, RSI, and composable indicator-combo strategies with binary/continuous signal modes
+- **Indicators** -- Trend, momentum, mean-reversion, and volatility indicators outputting normalized [-1, 1] signals
+- **Optimization** -- Grid search and Bayesian (Optuna TPE) parameter optimization with execution parameter sweeps
+- **Risk Management** -- Configurable position modes (pyramiding / one-position-only), stop-loss, take-profit, and cost models
+- **Validation** -- Purged walk-forward validation with embargo, deflated Sharpe, multiple-testing-aware trial accounting
+- **Monte Carlo** -- Block bootstrap and circular-shift permutation simulations with ruin probability
+- **Research Pipeline** -- Auto-research with indicator selection, correlation filtering, and holdout validation
+- **Experiment Store** -- SQLite-backed persistence with manifests, run status, metrics, trades, and equity artifacts
+- **Dashboard** -- Streamlit UI with 7 interactive pages
+- **API** -- FastAPI service layer with typed request/response contracts
+- **CLI** -- Unified `qp` command for backtest, optimize, research, download, dashboard, and API
 
 ## Architecture
 
 ```text
-quant_platform
-├── data/              # Data ingestion, lake storage, catalog, validation, research features
-├── engine/            # Backtester, metrics, validation, optimization, execution boundaries
-├── indicators/        # Trend, momentum, mean-reversion, volatility indicators
-├── models/            # Shared market and institutional contract models
-├── research/          # Candidate strategy generation and research pipeline
-├── services/          # Typed request/response service layer and data bridge
-├── storage/           # SQLite-backed experiment store and artifact references
-├── strategy/          # Strategy base classes and concrete strategies
-├── api/               # FastAPI endpoints
-├── ui/                # Streamlit dashboard components
-└── tests/             # Unit, integration, stress, accounting, and validation tests
+quant_platform/
++-- config/            # BacktestConfig, cost models, position modes
++-- data/              # Data ingestion, lake storage, catalog, validation, research features
++-- engine/            # Backtester, optimizer, bayesian optimizer, monte carlo, metrics
++-- indicators/        # Trend, momentum, mean-reversion, volatility indicators
++-- models/            # Shared market and institutional contract models
++-- research/          # Candidate strategy generation and research pipeline
++-- services/          # Typed request/response service layer and data bridge
++-- storage/           # SQLite-backed experiment store and artifact references
++-- strategy/          # Strategy base classes: SMACross, RSI, IndicatorCombo
++-- api/               # FastAPI endpoints
++-- ui/                # Streamlit dashboard (7 pages)
++-- tests/             # 1181 tests -- unit, integration, stress, accounting, validation
 ```
+
+## Key Features
+
+### Signal Modes
+
+All strategies support two signal modes configurable from the sidebar:
+
+- **Continuous** -- Proportional position sizing based on signal strength [-1, 1]
+- **Binary** -- Full allocation on signal direction (+1 or -1)
+
+### Execution & Risk Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| Capital | $10,000 | Initial portfolio capital |
+| Commission | 0.05% | Per-trade commission as percentage |
+| Slippage | 0.02% | Per-trade slippage as percentage |
+| Position Mode | Pyramiding | `pyramiding` or `one_position_only` |
+| Stop-Loss | Disabled | Intrabar stop-loss trigger (percentage) |
+| Take-Profit | Disabled | Intrabar take-profit trigger (percentage) |
+
+### Optimization
+
+Both Grid Search and Bayesian optimization support sweeping:
+
+- Strategy parameters (integer, float, or categorical ranges)
+- Signal mode (continuous vs binary)
+- Position mode (pyramiding vs one-position-only)
+- Stop-loss and take-profit percentages
+
+### Dashboard Pages
+
+| Page | Description |
+|------|-------------|
+| Backtest | Single-run execution with equity curve, trade log, and metrics |
+| Optimization | Grid search with heatmaps and top-N results |
+| Bayesian | Optuna TPE with convergence, parameter importance, and parallel coordinates |
+| Monte Carlo | Bootstrap simulation with confidence intervals and ruin probability |
+| Research | Auto-research pipeline with indicator selection and holdout validation |
+| History | Browse and compare persisted experiment runs |
+| Data Explorer | Explore and visualize market data |
 
 ## Institutional Contracts
 
-Recent rebuild work added explicit contracts for research-correct workflows:
+Explicit contracts for research-correct workflows:
 
-- `DatasetRef`: source, symbol, timeframe, layer, generation/snapshot, date range
-- `DatasetBundle`: validated data plus lineage metadata
-- `ValidationConfig`: purged walk-forward parameters and embargo settings
-- `TrialAccounting`: indicator combinations, parameter trials, Bayesian trials, reruns
-- `ExperimentManifest`: dataset refs, strategy spec, config, environment, artifacts
-- `ExecutionModel`: execution-simulation boundary for future live/portfolio workflows
+- `DatasetRef` -- Source, symbol, timeframe, layer, generation/snapshot, date range
+- `DatasetBundle` -- Validated data plus lineage metadata
+- `ValidationConfig` -- Purged walk-forward parameters and embargo settings
+- `TrialAccounting` -- Indicator combinations, parameter trials, Bayesian trials, reruns
+- `ExperimentManifest` -- Dataset refs, strategy spec, config, environment, artifacts
+- `ExecutionModel` -- Execution-simulation boundary for future live/portfolio workflows
 
 Legacy `data_path` workflows still work for demos and notebooks, but are marked as
 `unsafe_legacy_path` and should not be treated as institutionally approved research.
@@ -110,7 +155,13 @@ from strategy import SMACross
 prices = load_file("data/sample.csv")
 signals = SMACross(fast=10, slow=30).generate(prices)
 
-result = Backtester(BacktestConfig()).run(prices, signals)
+result = Backtester(BacktestConfig(
+    commission_pct=0.05,
+    slippage_pct=0.02,
+    position_mode="one_position_only",
+    stop_loss_pct=0.03,       # 3% stop-loss
+    take_profit_pct=0.05,     # 5% take-profit
+)).run(prices, signals)
 print(result.summary())
 ```
 
@@ -137,24 +188,6 @@ print(bundle.lineage_status)
 print(bundle.dataset_lineage)
 ```
 
-## API Fields
-
-Service/API requests support:
-
-- `dataset_ref`
-- `validation_config`
-- `execution_model`
-- `research_mode`
-
-Responses include:
-
-- `experiment_id`
-- `dataset_lineage`
-- `validation_report`
-- `trial_accounting`
-- `lineage_status`
-- `approval_eligible`
-
 ## Data And Artifacts
 
 The repository intentionally ignores local data lake outputs, SQLite databases,
@@ -172,13 +205,9 @@ Ignored by default:
 
 ## Validation Status
 
-Latest local verification before publishing:
-
 ```text
-1149 passed, 33 warnings
+1181 passed
 ```
-
-Touched rebuild files also pass Ruff.
 
 ## Project Status
 
