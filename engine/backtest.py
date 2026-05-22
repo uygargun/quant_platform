@@ -175,6 +175,7 @@ class Result:
     metrics: dict
     regimes: pd.Series | None = None
     open_positions: pd.DataFrame | None = None
+    benchmark_equity: pd.Series | None = None
 
     def summary(self) -> str:
         fmt = {
@@ -380,6 +381,12 @@ class Backtester:
         capital = self.cfg.initial_capital
         equity_curve = pd.Series(equity_arr, index=df.index)
 
+        # --- benchmark (buy-and-hold) ---
+        benchmark_equity = pd.Series(
+            capital * (closes / closes[0]), index=df.index,
+        )
+        bench_returns = benchmark_equity.pct_change().fillna(0.0)
+
         # --- metrics ---
         returns = equity_curve.pct_change().fillna(0.0)
         trade_pnls = trades_df["pnl"] if len(trades_df) > 0 else pd.Series(dtype=float)
@@ -396,6 +403,10 @@ class Backtester:
             "profit_factor": m.profit_factor(trade_pnls),
             "avg_trade":     m.avg_trade(trade_pnls),
             "total_trades":  len(trades_df),
+            "alpha":         m.alpha(returns, bench_returns, rf, periods),
+            "beta":          m.beta(returns, bench_returns),
+            "information_ratio": m.information_ratio(returns, bench_returns, periods),
+            "tracking_error": m.tracking_error(returns, bench_returns, periods),
         }
 
         # --- regime detection ---
@@ -412,6 +423,7 @@ class Backtester:
             equity_curve=equity_curve, trades=trades_df,
             metrics=metrics, regimes=regimes,
             open_positions=open_positions,
+            benchmark_equity=benchmark_equity,
         )
 
     def _run_numba(
@@ -891,4 +903,5 @@ class Backtester:
             "Multi-asset backtest complete: %d trades, return=%.2f%%, sharpe=%.2f",
             metrics["total_trades"], metrics["total_return"] * 100, metrics["sharpe"],
         )
-        return Result(equity_curve=equity_curve, trades=trades_df, metrics=metrics)
+        return Result(equity_curve=equity_curve, trades=trades_df, metrics=metrics,
+                      open_positions=None)

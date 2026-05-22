@@ -144,3 +144,67 @@ def kurtosis(returns: pd.Series) -> float:
     if len(returns) < 4:
         return 0.0
     return float(returns.kurtosis())
+
+
+# ─── Benchmark-relative metrics ─────────────────────────────────────
+
+
+def beta(strat_returns: pd.Series, bench_returns: pd.Series) -> float:
+    """OLS beta: cov(strat, bench) / var(bench)."""
+    if len(strat_returns) < 2 or len(bench_returns) < 2:
+        return 0.0
+    var_b = bench_returns.var()
+    if var_b == 0 or np.isnan(var_b):
+        return 0.0
+    return float(strat_returns.cov(bench_returns) / var_b)
+
+
+def alpha(
+    strat_returns: pd.Series,
+    bench_returns: pd.Series,
+    risk_free: float = 0.0,
+    periods: int = 0,
+) -> float:
+    """Annualized Jensen's alpha: E[R_s] - (rf + beta * (E[R_b] - rf))."""
+    if periods <= 0:
+        periods = infer_periods(strat_returns.index)
+    b = beta(strat_returns, bench_returns)
+    rf_per_period = risk_free / periods
+    excess_strat = strat_returns.mean() - rf_per_period
+    excess_bench = bench_returns.mean() - rf_per_period
+    alpha_per_period = excess_strat - b * excess_bench
+    return float(alpha_per_period * periods)
+
+
+def tracking_error(
+    strat_returns: pd.Series,
+    bench_returns: pd.Series,
+    periods: int = 0,
+) -> float:
+    """Annualized tracking error: std(strat - bench) * sqrt(periods)."""
+    if len(strat_returns) < 2:
+        return 0.0
+    if periods <= 0:
+        periods = infer_periods(strat_returns.index)
+    excess = strat_returns - bench_returns
+    te = excess.std()
+    if np.isnan(te):
+        return 0.0
+    return float(te * np.sqrt(periods))
+
+
+def information_ratio(
+    strat_returns: pd.Series,
+    bench_returns: pd.Series,
+    periods: int = 0,
+) -> float:
+    """Annualized information ratio: mean(excess) / std(excess) * sqrt(periods)."""
+    if len(strat_returns) < 2:
+        return 0.0
+    if periods <= 0:
+        periods = infer_periods(strat_returns.index)
+    excess = strat_returns - bench_returns
+    te = excess.std()
+    if te == 0 or np.isnan(te):
+        return 0.0
+    return float(excess.mean() / te * np.sqrt(periods))

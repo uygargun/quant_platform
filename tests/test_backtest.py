@@ -174,6 +174,7 @@ def test_result_dataclass():
         "total_return", "cagr", "sharpe", "sortino",
         "max_drawdown", "volatility", "win_rate",
         "profit_factor", "avg_trade", "total_trades",
+        "alpha", "beta", "information_ratio", "tracking_error",
     }
     assert expected_keys == set(result.metrics.keys())
 

@@ -28,6 +28,7 @@ def render_bt_results(out: dict, key_prefix: str = "bt") -> None:
             result.equity_curve,
             title=f"{out['strategy']} — {os.path.basename(out['data_path'])}",
             regimes=result.regimes,
+            benchmark=result.benchmark_equity,
         ),
         use_container_width=True,
         key=f"{key_prefix}_equity",
@@ -55,6 +56,22 @@ def render_bt_results(out: dict, key_prefix: str = "bt") -> None:
             if "shares" in trade_df.columns:
                 trade_df["shares"] = trade_df["shares"].round(4)
             st.dataframe(trade_df, use_container_width=True, hide_index=True)
+
+    # Download report
+    from services.report_export import ReportExporter
+    html = ReportExporter().generate_html(
+        title=f"Backtest Report — {out['strategy']}",
+        equity_curve=result.equity_curve,
+        metrics=out["metrics"],
+        trades=result.trades if len(result.trades) > 0 else None,
+        regimes=result.regimes,
+        benchmark=result.benchmark_equity,
+    )
+    st.download_button(
+        "Download Report", html,
+        "backtest_report.html", "text/html",
+        key=f"{key_prefix}_download",
+    )
 
 
 def render(tab, ctx: dict) -> None:

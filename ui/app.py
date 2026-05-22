@@ -14,9 +14,10 @@ from services import (
     MonteCarloService,
     OptimizationService,
     ResearchService,
+    WalkForwardService,
 )
 from ui import sidebar
-from ui.pages import backtest, bayesian, data_explorer, history, montecarlo, optimization, research
+from ui.pages import backtest, bayesian, data_explorer, history, montecarlo, optimization, research, walkforward
 from ui.state import init_state
 from ui.styles import inject_css
 
@@ -44,6 +45,7 @@ def main() -> None:
             "opt_svc": OptimizationService(STRATEGIES),
             "bay_svc": BayesianOptimizationService(STRATEGIES),
             "res_svc": ResearchService(),
+            "wf_svc": WalkForwardService(STRATEGIES),
         }
 
     _svcs = _create_services()
@@ -52,6 +54,7 @@ def main() -> None:
     opt_svc = _svcs["opt_svc"]
     bay_svc = _svcs["bay_svc"]
     res_svc = _svcs["res_svc"]
+    wf_svc = _svcs["wf_svc"]
 
     # ── Sidebar → context dict ───────────────────────────────────────
     ctx = sidebar.render()
@@ -61,12 +64,13 @@ def main() -> None:
         "opt_svc": opt_svc,
         "bay_svc": bay_svc,
         "res_svc": res_svc,
+        "wf_svc": wf_svc,
     })
 
     # ── Tabs ─────────────────────────────────────────────────────────
-    tab_bt, tab_de, tab_research, tab_opt, tab_bay, tab_mc, tab_history = st.tabs([
+    tab_bt, tab_de, tab_research, tab_opt, tab_bay, tab_mc, tab_wf, tab_history = st.tabs([
         "Backtest", "Data Explorer", "Research", "Optimization",
-        "Bayesian Opt", "Monte Carlo", "History & Compare",
+        "Bayesian Opt", "Monte Carlo", "Walk-Forward", "History & Compare",
     ])
 
     # ── Render pages ─────────────────────────────────────────────────
@@ -76,4 +80,5 @@ def main() -> None:
     optimization.render(tab_opt, ctx)
     bayesian.render(tab_bay, ctx)
     montecarlo.render(tab_mc, ctx)
+    walkforward.render(tab_wf, ctx)
     history.render(tab_history, ctx)

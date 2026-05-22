@@ -51,6 +51,7 @@ def render_opt_results(
             best_result.equity_curve,
             title=f"Best: {out['best_params']}",
             regimes=best_result.regimes,
+            benchmark=best_result.benchmark_equity,
         ),
         use_container_width=True,
         key=f"{key_prefix}_equity",
@@ -62,6 +63,22 @@ def render_opt_results(
             for c in top_df.select_dtypes(include="float").columns:
                 top_df[c] = top_df[c].round(4)
             st.dataframe(top_df, use_container_width=True, hide_index=True)
+
+    # Download report
+    from services.report_export import ReportExporter
+    html = ReportExporter().generate_html(
+        title=f"Optimization Report — Best: {out['best_params']}",
+        equity_curve=best_result.equity_curve,
+        metrics=best_result.metrics,
+        trades=best_result.trades if len(best_result.trades) > 0 else None,
+        regimes=best_result.regimes,
+        benchmark=best_result.benchmark_equity,
+    )
+    st.download_button(
+        "Download Report", html,
+        "optimization_report.html", "text/html",
+        key=f"{key_prefix}_download",
+    )
 
     param_names = list(param_grid.keys())
     if len(param_names) == 2:
@@ -98,11 +115,16 @@ def render(tab, ctx: dict) -> None:
         _DEFAULT_PARAMS: dict[str, dict] = {
             "sma_cross": {"fast": 20, "slow": 50},
             "rsi": {"period": 14, "oversold": 30, "overbought": 70},
+            "donchian": {"period": 20},
+            "zscore": {"lookback": 20, "entry_z": 2.0, "exit_z": 0.5},
         }
         _GRID_DEFAULTS: dict[str, dict] = {
             "sma_cross": {"fast": "5,10,15,20,25", "slow": "20,30,40,50,60"},
             "rsi": {"period": "7,10,14,21", "oversold": "20,25,30",
                     "overbought": "70,75,80"},
+            "donchian": {"period": "10,15,20,30,40,50"},
+            "zscore": {"lookback": "10,15,20,30", "entry_z": "1.5,2.0,2.5,3.0",
+                       "exit_z": "0.3,0.5,0.7"},
         }
         if strategy_name == "indicator_combo" and selected_indicators:
             space = IndicatorComboStrategy.build_param_space(selected_indicators)

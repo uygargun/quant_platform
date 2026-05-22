@@ -22,6 +22,8 @@ _INDICATOR_MAP: MappingProxyType = MappingProxyType(
 _DEFAULT_PARAMS: MappingProxyType = MappingProxyType({
     "sma_cross": MappingProxyType({"fast": 20, "slow": 50}),
     "rsi": MappingProxyType({"period": 14, "oversold": 30, "overbought": 70}),
+    "donchian": MappingProxyType({"period": 20}),
+    "zscore": MappingProxyType({"lookback": 20, "entry_z": 2.0, "exit_z": 0.5}),
 })
 
 

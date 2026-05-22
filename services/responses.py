@@ -264,6 +264,40 @@ class BayesianOptimizationResponse(_DictAccessMixin):
 
 
 # ================================================================== #
+#  Walk-Forward                                                        #
+# ================================================================== #
+
+@dataclass
+class WalkForwardInternals:
+    """Non-serializable engine objects from a walk-forward run."""
+    wf_result: Any = None   # engine.walkforward.WalkForwardResult
+
+
+@dataclass
+class WalkForwardResponse(_DictAccessMixin):
+    """Typed response from WalkForwardService.run()."""
+    strategy: str
+    data_path: str
+    target: str
+    minimize: bool
+    n_folds: int
+    train_bars: int
+    test_bars: int
+    embargo_bars: int
+    metrics: dict[str, Any] = field(default_factory=dict)
+    is_oos_ratio: float = 0.0
+    param_stability_cv: dict[str, float] = field(default_factory=dict)
+    summary: str = ""
+    experiment_id: str | None = None
+    dataset_lineage: dict[str, Any] | None = None
+    lineage_status: str = "unsafe_legacy_path"
+    approval_eligible: bool = False
+    internals: WalkForwardInternals = field(
+        default_factory=WalkForwardInternals,
+    )
+
+
+# ================================================================== #
 #  Research                                                            #
 # ================================================================== #
 

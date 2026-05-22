@@ -8,13 +8,17 @@ import numpy as np
 import pandas as pd
 
 from engine.metrics import (
+    alpha,
     avg_trade,
+    beta,
     cagr,
     infer_periods,
+    information_ratio,
     max_drawdown,
     profit_factor,
     sharpe,
     sortino,
+    tracking_error,
     volatility,
     win_rate,
 )
@@ -187,3 +191,93 @@ def test_volatility_positive():
 def test_volatility_zero():
     ret = pd.Series([0.0] * 100)
     assert volatility(ret) == 0.0
+
+
+# --- beta ---
+
+def test_beta_identical_returns():
+    """Strategy == benchmark → beta = 1."""
+    idx = pd.date_range("2024-01-01", periods=252, freq="D", tz="UTC")
+    rng = np.random.default_rng(42)
+    ret = pd.Series(rng.normal(0.001, 0.01, 252), index=idx)
+    assert abs(beta(ret, ret) - 1.0) < 1e-10
+
+
+def test_beta_uncorrelated():
+    """Uncorrelated returns → beta ≈ 0."""
+    idx = pd.date_range("2024-01-01", periods=5000, freq="D", tz="UTC")
+    rng = np.random.default_rng(42)
+    strat = pd.Series(rng.normal(0, 0.01, 5000), index=idx)
+    bench = pd.Series(rng.normal(0, 0.01, 5000), index=idx)
+    b = beta(strat, bench)
+    assert abs(b) < 0.1
+
+
+def test_beta_leveraged():
+    """2x leveraged strategy → beta ≈ 2."""
+    idx = pd.date_range("2024-01-01", periods=252, freq="D", tz="UTC")
+    rng = np.random.default_rng(42)
+    bench = pd.Series(rng.normal(0.001, 0.01, 252), index=idx)
+    strat = bench * 2
+    assert abs(beta(strat, bench) - 2.0) < 1e-10
+
+
+# --- alpha ---
+
+def test_alpha_identical_returns():
+    """Strategy == benchmark → alpha = 0."""
+    idx = pd.date_range("2024-01-01", periods=252, freq="D", tz="UTC")
+    rng = np.random.default_rng(42)
+    ret = pd.Series(rng.normal(0.001, 0.01, 252), index=idx)
+    a = alpha(ret, ret)
+    assert abs(a) < 1e-10
+
+
+def test_alpha_outperformance():
+    """Strategy with constant excess return → positive alpha."""
+    idx = pd.date_range("2024-01-01", periods=252, freq="D", tz="UTC")
+    rng = np.random.default_rng(42)
+    bench = pd.Series(rng.normal(0.0005, 0.01, 252), index=idx)
+    strat = bench + 0.001  # constant daily excess return
+    a = alpha(strat, bench, periods=252)
+    assert a > 0
+
+
+# --- tracking_error ---
+
+def test_tracking_error_identical():
+    """Strategy == benchmark → TE = 0."""
+    idx = pd.date_range("2024-01-01", periods=252, freq="D", tz="UTC")
+    rng = np.random.default_rng(42)
+    ret = pd.Series(rng.normal(0.001, 0.01, 252), index=idx)
+    assert tracking_error(ret, ret) == 0.0
+
+
+def test_tracking_error_positive():
+    """Different strategies → TE > 0."""
+    idx = pd.date_range("2024-01-01", periods=252, freq="D", tz="UTC")
+    rng = np.random.default_rng(42)
+    strat = pd.Series(rng.normal(0.001, 0.01, 252), index=idx)
+    bench = pd.Series(rng.normal(0.0005, 0.01, 252), index=idx)
+    te = tracking_error(strat, bench)
+    assert te > 0
+
+
+# --- information_ratio ---
+
+def test_information_ratio_identical():
+    """Strategy == benchmark → IR = 0."""
+    idx = pd.date_range("2024-01-01", periods=252, freq="D", tz="UTC")
+    rng = np.random.default_rng(42)
+    ret = pd.Series(rng.normal(0.001, 0.01, 252), index=idx)
+    assert information_ratio(ret, ret) == 0.0
+
+
+def test_information_ratio_outperformance():
+    """Consistent outperformance → positive IR."""
+    idx = pd.date_range("2024-01-01", periods=252, freq="D", tz="UTC")
+    rng = np.random.default_rng(42)
+    bench = pd.Series(rng.normal(0.0005, 0.01, 252), index=idx)
+    strat = bench + 0.001  # daily excess
+    ir = information_ratio(strat, bench, periods=252)
+    assert ir > 0

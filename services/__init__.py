@@ -8,7 +8,7 @@ access for backward compatibility with existing consumers.
 """
 from __future__ import annotations
 
-from strategy import RSI, SMACross
+from strategy import RSI, DonchianBreakout, SMACross, ZScoreMeanReversion
 
 from .backtest_service import BacktestService
 from .bayesian_service import BayesianOptimizationService
@@ -31,8 +31,10 @@ from .requests import (
     MonteCarloRequest,
     OptimizationRequest,
     ResearchConfig,
+    WalkForwardRequest,
 )
 from .research_service import ResearchService
+from .walkforward_service import WalkForwardService
 from .responses import (
     BacktestInternals,
     BacktestResponse,
@@ -45,6 +47,8 @@ from .responses import (
     ResearchInternals,
     ResearchResponse,
     SelectedStrategyDetail,
+    WalkForwardInternals,
+    WalkForwardResponse,
 )
 
 # Strategy registry — single source of truth for name -> class mapping.
@@ -53,6 +57,8 @@ from .responses import (
 STRATEGIES = StrategyRegistry({
     "sma_cross": SMACross,
     "rsi": RSI,
+    "donchian": DonchianBreakout,
+    "zscore": ZScoreMeanReversion,
 })
 
 
@@ -70,6 +76,7 @@ __all__ = [
     "MonteCarloRequest",
     "OptimizationRequest",
     "BayesianOptimizationRequest",
+    "WalkForwardRequest",
     "ResearchConfig",
     "DatasetRef",
     "DatasetBundle",
@@ -88,6 +95,8 @@ __all__ = [
     "OptimizationResponse",
     "OptimizationInternals",
     "BayesianOptimizationResponse",
+    "WalkForwardResponse",
+    "WalkForwardInternals",
     "ResearchResponse",
     "ResearchInternals",
     "SelectedStrategyDetail",
@@ -97,4 +106,5 @@ __all__ = [
     "OptimizationService",
     "BayesianOptimizationService",
     "ResearchService",
+    "WalkForwardService",
 ]

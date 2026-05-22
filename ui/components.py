@@ -83,6 +83,10 @@ _METRIC_FMT = {
     "profit_factor": ("{:.2f}", "Profit Factor"),
     "avg_trade": ("{:+.2f}", "Avg Trade"),
     "total_trades": ("{:d}", "Total Trades"),
+    "alpha": ("{:+.2%}", "Alpha"),
+    "beta": ("{:.2f}", "Beta"),
+    "information_ratio": ("{:.2f}", "Info Ratio"),
+    "tracking_error": ("{:.2%}", "Tracking Error"),
 }
 
 

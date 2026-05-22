@@ -24,6 +24,7 @@ def _tf_sort_key(tf: str) -> int:
 
 def render(tab, ctx: dict) -> None:
     """Render the Data Explorer tab."""
+    from data.query.gap_report import INTERVAL_SECONDS, detect_gaps, gap_summary
     from data.query.loader import list_available, scan_symbol
     from data.research.analytics import (
         drawdown, intraday_seasonality, realized_volatility, rolling_atr,
@@ -123,9 +124,9 @@ def render(tab, ctx: dict) -> None:
         m4.metric("Close", f"{df['close'][-1]:.5f}")
 
         # ── Tabs ────────────────────────────────────────────────
-        tab_candle, tab_returns, tab_vol, tab_dd, tab_season, tab_heatmap = st.tabs(
+        tab_candle, tab_returns, tab_vol, tab_dd, tab_season, tab_heatmap, tab_quality = st.tabs(
             ["Candlestick", "Returns", "Volatility", "Drawdown",
-             "Seasonality", "Session Heatmap"],
+             "Seasonality", "Session Heatmap", "Data Quality"],
         )
 
         with tab_candle:
@@ -376,3 +377,73 @@ def render(tab, ctx: dict) -> None:
                     height=350, **PLOTLY_DARK,
                 )
                 st.plotly_chart(fig_cnt, use_container_width=True, key="de_heatmap_cnt")
+
+        with tab_quality:
+            gaps = detect_gaps(df, timeframe=timeframe)
+            summary = gap_summary(gaps)
+
+            # Summary metrics
+            total_bars = len(df)
+            qm1, qm2, qm3, qm4, qm5 = st.columns(5)
+            qm1.metric("Total Bars", f"{total_bars:,}")
+            qm2.metric("Total Gaps", str(summary["total_gaps"]))
+            qm3.metric("Weekend Gaps", str(summary["weekend_gaps"]))
+            qm4.metric("Unexpected Gaps", str(summary["unexpected_gaps"]))
+            qm5.metric("Missing Bars", str(summary.get("total_unexpected_bars", 0)))
+
+            # Coverage estimate
+            if total_bars >= 2:
+                ts_col = df["timestamp_utc"]
+                span_sec = (ts_col.max() - ts_col.min()).total_seconds()
+                interval_sec = INTERVAL_SECONDS.get(timeframe, 60)
+                expected = int(span_sec / interval_sec) + 1 if interval_sec > 0 else total_bars
+                coverage = total_bars / expected if expected > 0 else 1.0
+                st.progress(min(coverage, 1.0),
+                            text=f"Coverage: {total_bars:,} / {expected:,} "
+                                 f"expected bars ({coverage:.1%})")
+
+            if not gaps.is_empty():
+                unexpected = gaps.filter(~pl.col("is_weekend"))
+
+                # Gap timeline scatter
+                if not unexpected.is_empty():
+                    fig_gaps = go.Figure()
+                    fig_gaps.add_trace(go.Scatter(
+                        x=unexpected["gap_start"].to_list(),
+                        y=unexpected["gap_bars"].to_list(),
+                        mode="markers",
+                        marker={"color": "#f85149", "size": 8, "opacity": 0.7},
+                        name="Unexpected Gap",
+                        hovertemplate=(
+                            "Start: %{x}<br>Missing bars: %{y}<extra></extra>"
+                        ),
+                    ))
+                    weekend_gaps = gaps.filter(pl.col("is_weekend"))
+                    if not weekend_gaps.is_empty():
+                        fig_gaps.add_trace(go.Scatter(
+                            x=weekend_gaps["gap_start"].to_list(),
+                            y=weekend_gaps["gap_bars"].to_list(),
+                            mode="markers",
+                            marker={"color": "#484f58", "size": 6, "opacity": 0.5},
+                            name="Weekend Gap",
+                        ))
+                    fig_gaps.update_layout(
+                        title="Gap Timeline",
+                        xaxis_title="Date", yaxis_title="Gap Size (bars)",
+                        height=400, hovermode="closest", **PLOTLY_DARK,
+                    )
+                    st.plotly_chart(fig_gaps, use_container_width=True, key="de_gaps")
+
+                # Gap table
+                with st.expander(
+                    f"All Gaps ({len(gaps)} total, "
+                    f"{summary['unexpected_gaps']} unexpected)",
+                    expanded=False,
+                ):
+                    display_gaps = gaps.sort("gap_start")
+                    st.dataframe(
+                        display_gaps.to_pandas(),
+                        use_container_width=True, hide_index=True,
+                    )
+            else:
+                st.success("No gaps detected in the selected data range.")

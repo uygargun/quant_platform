@@ -11,16 +11,19 @@ lineage-bound, and defensible before they are treated as deployable.
 
 - **Data Layer** -- Polars data lake with raw/silver/gold layers, catalog metadata, lineage, snapshots, and schema validation
 - **Backtesting Engine** -- Pandas/Numba holdings-based accounting with next-open fills, intrabar stop-loss/take-profit, and multiple position modes
-- **Strategy Framework** -- SMA Cross, RSI, and composable indicator-combo strategies with binary/continuous signal modes
+- **Strategy Framework** -- SMA Cross, RSI, Donchian Breakout, Z-Score Mean Reversion, and composable indicator-combo strategies with binary/continuous signal modes
 - **Indicators** -- Trend, momentum, mean-reversion, and volatility indicators outputting normalized [-1, 1] signals
 - **Optimization** -- Grid search and Bayesian (Optuna TPE) parameter optimization with execution parameter sweeps and parallel jobs
 - **Cost Models** -- Flat, half-spread, volatility-adjusted slippage, square-root market impact, and zero-cost models selectable from the dashboard
 - **Risk Management** -- Volatility targeting, position/leverage constraints, drawdown-based exposure reduction, stop-loss, take-profit, and configurable position modes
+- **Benchmark Comparison** -- Buy-and-hold overlay on equity charts with alpha, beta, information ratio, and tracking error metrics
+- **Walk-Forward Dashboard** -- Rolling train/test validation with fold timeline, IS vs OOS comparison, parameter stability, and overfitting detection
 - **Validation** -- Purged walk-forward validation with embargo, deflated Sharpe, multiple-testing-aware trial accounting
 - **Monte Carlo** -- Block bootstrap and circular-shift permutation simulations with configurable ruin threshold
 - **Research Pipeline** -- Auto-research with indicator selection, indicator and strategy correlation filtering, and holdout validation
 - **Experiment Store** -- SQLite-backed persistence with manifests, run status, metrics, trades, and equity artifacts
-- **Dashboard** -- Streamlit UI with 7 interactive pages, full sidebar configuration for cost models, risk controls, and advanced engine settings
+- **Report Export** -- Downloadable standalone HTML reports from any results page with embedded charts, metrics, and trade logs
+- **Dashboard** -- Streamlit UI with 8 interactive pages, full sidebar configuration for cost models, risk controls, and advanced engine settings
 - **API** -- FastAPI service layer with typed request/response contracts
 - **CLI** -- Unified `qp` command for backtest, optimize, research, download, dashboard, and API
 
@@ -36,10 +39,10 @@ quant_platform/
 +-- research/          # Candidate strategy generation and research pipeline
 +-- services/          # Typed request/response service layer, config builder, and data bridge
 +-- storage/           # SQLite-backed experiment store and artifact references
-+-- strategy/          # Strategy base classes: SMACross, RSI, IndicatorCombo
++-- strategy/          # Strategy base classes: SMACross, RSI, Donchian, ZScore, IndicatorCombo
 +-- api/               # FastAPI endpoints
-+-- ui/                # Streamlit dashboard (7 pages)
-+-- tests/             # 1181 tests -- unit, integration, stress, accounting, validation
++-- ui/                # Streamlit dashboard (8 pages)
++-- tests/             # 1190+ tests -- unit, integration, stress, accounting, validation
 ```
 
 ## Key Features
@@ -110,13 +113,14 @@ Both Grid Search and Bayesian optimization support sweeping:
 
 | Page | Description |
 |------|-------------|
-| Backtest | Single-run execution with equity curve, drawdown chart, trade log, regime breakdown, and approval validation |
-| Optimization | Grid search with heatmaps, top-N results, and parallel jobs |
-| Bayesian | Optuna TPE with convergence, parameter importance, parallel coordinates, timeout, and parallel jobs |
+| Backtest | Single-run execution with equity curve, benchmark overlay, drawdown chart, trade log, regime breakdown, approval validation, and HTML report export |
+| Optimization | Grid search with heatmaps, top-N results, benchmark overlay, parallel jobs, and report export |
+| Bayesian | Optuna TPE with convergence, parameter importance, parallel coordinates, benchmark overlay, and report export |
 | Monte Carlo | Bootstrap simulation with configurable ruin threshold, fan charts, and return/drawdown distributions |
+| Walk-Forward | Rolling train/test optimization with OOS equity, fold timeline, IS vs OOS comparison, parameter stability, and report export |
 | Research | Auto-research pipeline with indicator and strategy correlation filtering, holdout validation |
 | History | Browse and compare persisted experiment runs with overlaid equity/drawdown charts |
-| Data Explorer | Candlestick, returns, volatility, drawdown, intraday seasonality, and session heatmap analysis |
+| Data Explorer | Candlestick, returns, volatility, drawdown, intraday seasonality, session heatmap, and data quality analysis |
 
 ## Institutional Contracts
 
@@ -251,7 +255,7 @@ Ignored by default:
 ## Validation Status
 
 ```text
-1181 passed
+1190 passed
 ```
 
 ## Project Status

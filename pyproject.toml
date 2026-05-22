@@ -110,3 +110,11 @@ omit = ["tests/*", ".venv/*", "data/downloads/*"]
 [tool.coverage.report]
 fail_under = 60
 show_missing = true
+
+# --- Mypy ---
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+exclude = ["tests/", "\\.venv/", "data/downloads/"]

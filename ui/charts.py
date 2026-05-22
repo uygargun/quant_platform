@@ -16,8 +16,9 @@ def equity_chart(
     equity: pd.Series,
     title: str = "Equity Curve",
     regimes: pd.Series = None,
+    benchmark: pd.Series | None = None,
 ) -> go.Figure:
-    """Equity line with optional regime shading."""
+    """Equity line with optional regime shading and benchmark overlay."""
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x=equity.index, y=equity.values,
@@ -25,6 +26,13 @@ def equity_chart(
         line=dict(color="#58a6ff", width=2),
         hovertemplate="$%{y:,.0f}<extra>%{x|%Y-%m-%d}</extra>",
     ))
+    if benchmark is not None:
+        fig.add_trace(go.Scatter(
+            x=benchmark.index, y=benchmark.values,
+            mode="lines", name="Buy & Hold",
+            line=dict(color="#8b949e", width=1.5, dash="dash"),
+            hovertemplate="$%{y:,.0f}<extra>Buy & Hold</extra>",
+        ))
     if regimes is not None:
         for regime, color in REGIME_COLORS.items():
             mask = regimes == regime
@@ -420,6 +428,81 @@ def parallel_coordinates_chart(
         title="Parameter Space Exploration",
         height=420,
         margin=dict(l=80, r=80, t=50, b=40),
+        **PLOTLY_DARK,
+    )
+    return fig
+
+
+# ─── Walk-forward charts ────────────────────────────────────────────
+
+def walkforward_fold_chart(windows) -> go.Figure:
+    """Timeline bar chart showing train/test/embargo windows per fold."""
+    fig = go.Figure()
+
+    for w in windows:
+        fold = w.fold
+        fig.add_trace(go.Bar(
+            x=[(pd.Timestamp(w.train_end) - pd.Timestamp(w.train_start)).days],
+            y=[f"Fold {fold}"],
+            base=[pd.Timestamp(w.train_start)],
+            orientation="h",
+            marker_color="rgba(88,166,255,0.4)",
+            name="Train" if fold == 0 else None,
+            showlegend=(fold == 0),
+            hovertemplate=(
+                f"Fold {fold} Train<br>"
+                f"{w.train_start} → {w.train_end}<extra></extra>"
+            ),
+        ))
+        fig.add_trace(go.Bar(
+            x=[(pd.Timestamp(w.test_end) - pd.Timestamp(w.test_start)).days],
+            y=[f"Fold {fold}"],
+            base=[pd.Timestamp(w.test_start)],
+            orientation="h",
+            marker_color="rgba(63,185,80,0.6)",
+            name="Test" if fold == 0 else None,
+            showlegend=(fold == 0),
+            hovertemplate=(
+                f"Fold {fold} Test<br>"
+                f"{w.test_start} → {w.test_end}<extra></extra>"
+            ),
+        ))
+
+    fig.update_layout(
+        title="Walk-Forward Fold Timeline",
+        barmode="overlay",
+        height=max(200, len(windows) * 50 + 80),
+        margin=dict(l=80, r=30, t=50, b=40),
+        legend=dict(orientation="h", y=-0.15),
+        **PLOTLY_DARK,
+    )
+    return fig
+
+
+def is_oos_comparison_chart(windows, target: str) -> go.Figure:
+    """Grouped bar chart: IS vs OOS metric per fold."""
+    folds = [f"Fold {w.fold}" for w in windows]
+    is_vals = [w.best_train_metric for w in windows]
+    oos_vals = [w.test_metrics.get(target, 0) for w in windows]
+
+    fig = go.Figure()
+    fig.add_trace(go.Bar(
+        x=folds, y=is_vals, name="In-Sample",
+        marker_color="rgba(88,166,255,0.7)",
+        hovertemplate="%{x}: %{y:.4f}<extra>IS</extra>",
+    ))
+    fig.add_trace(go.Bar(
+        x=folds, y=oos_vals, name="Out-of-Sample",
+        marker_color="rgba(63,185,80,0.7)",
+        hovertemplate="%{x}: %{y:.4f}<extra>OOS</extra>",
+    ))
+    fig.update_layout(
+        title=f"IS vs OOS — {target.title()}",
+        barmode="group",
+        yaxis_title=target.title(),
+        height=350,
+        margin=dict(l=60, r=30, t=50, b=40),
+        legend=dict(orientation="h", y=-0.15),
         **PLOTLY_DARK,
     )
     return fig

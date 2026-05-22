@@ -55,9 +55,26 @@ def render_bayesian_results(
             best_result.equity_curve,
             title=f"Best: {out['best_params']}",
             regimes=best_result.regimes,
+            benchmark=best_result.benchmark_equity,
         ),
         use_container_width=True,
         key=f"{key_prefix}_equity",
+    )
+
+    # Download report
+    from services.report_export import ReportExporter
+    html = ReportExporter().generate_html(
+        title=f"Bayesian Optimization Report — Best: {out['best_params']}",
+        equity_curve=best_result.equity_curve,
+        metrics=best_result.metrics,
+        trades=best_result.trades if len(best_result.trades) > 0 else None,
+        regimes=best_result.regimes,
+        benchmark=best_result.benchmark_equity,
+    )
+    st.download_button(
+        "Download Report", html,
+        "bayesian_report.html", "text/html",
+        key=f"{key_prefix}_download",
     )
 
     # Convergence chart
@@ -123,6 +140,9 @@ def render(tab, ctx: dict) -> None:
         _DEFAULT_SPACES: dict[str, dict] = {
             "sma_cross": {"fast": "5,30", "slow": "20,80"},
             "rsi": {"period": "5,30", "oversold": "20,40", "overbought": "60,80"},
+            "donchian": {"period": "5,60"},
+            "zscore": {"lookback": "5,50", "entry_z": "1.0,3.5,float",
+                       "exit_z": "0.1,1.5,float"},
         }
         if strategy_name == "indicator_combo" and selected_indicators:
             space = IndicatorComboStrategy.build_param_space(selected_indicators)
