@@ -32,6 +32,7 @@ def init_state() -> None:
         # History
         "history_backtest": [],
         "history_optimization": [],
+        "history_walkforward": [],
         "history_research": [],
         "_history_counter": 0,
         # Backtest tab
@@ -44,6 +45,8 @@ def init_state() -> None:
         # Bayesian Optimization tab
         "bay_result": None,
         "bay_param_space": {},
+        # Walk-Forward tab
+        "wf_result": None,
         # Monte Carlo tab
         "mc_result": None,
         "mc_paths_saved": 500,
@@ -108,6 +111,7 @@ def all_history() -> list[dict]:
     combined = (
         st.session_state.get("history_backtest", [])
         + st.session_state.get("history_optimization", [])
+        + st.session_state.get("history_walkforward", [])
         + st.session_state.get("history_research", [])
     )
     return sorted(combined, key=lambda e: e["id"], reverse=True)
