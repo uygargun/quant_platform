@@ -185,6 +185,144 @@ def render() -> dict:
             "Take-Profit (%)", value=5.0, min_value=0.1, max_value=100.0, step=0.5,
         ) / 100.0
 
+    # ── Cost Model ──────────────────────────────────────────────────
+    st.sidebar.markdown('<div class="section-header">Cost Model</div>',
+                        unsafe_allow_html=True)
+    _COST_MODEL_OPTIONS = [
+        "flat", "spread", "vol_slippage", "sqrt_impact", "zero",
+    ]
+    _COST_MODEL_LABELS = {
+        "flat": "Flat (bps)",
+        "spread": "Half-Spread (bps)",
+        "vol_slippage": "Vol-Adjusted Slippage",
+        "sqrt_impact": "Sqrt Market Impact",
+        "zero": "Zero Cost",
+    }
+    cost_model_type = st.sidebar.selectbox(
+        "Cost Model",
+        _COST_MODEL_OPTIONS,
+        format_func=lambda x: _COST_MODEL_LABELS[x],
+        label_visibility="collapsed",
+    )
+
+    cost_model_params: dict = {}
+    if cost_model_type == "spread":
+        cost_model_params["spread_bps"] = st.sidebar.number_input(
+            "Spread (bps)", value=5.0, min_value=0.0, step=1.0,
+            format="%.1f",
+        )
+    elif cost_model_type == "vol_slippage":
+        vs_c1, vs_c2 = st.sidebar.columns(2)
+        with vs_c1:
+            cost_model_params["base_slippage_bps"] = st.number_input(
+                "Base Slip (bps)", value=5.0, min_value=0.0, step=1.0,
+                format="%.1f", key="vs_base",
+            )
+        with vs_c2:
+            cost_model_params["commission_bps"] = st.number_input(
+                "Comm (bps)", value=5.0, min_value=0.0, step=1.0,
+                format="%.1f", key="vs_comm",
+            )
+        cost_model_params["lookback"] = st.sidebar.number_input(
+            "Vol Lookback", value=20, min_value=2, step=1,
+            key="vs_lookback",
+        )
+    elif cost_model_type == "sqrt_impact":
+        cost_model_params["sigma"] = st.sidebar.number_input(
+            "Impact Coefficient (sigma)", value=0.05, min_value=0.001,
+            max_value=1.0, step=0.01, format="%.3f",
+        )
+
+    # ── Risk Manager ────────────────────────────────────────────────
+    st.sidebar.markdown('<div class="section-header">Risk Controls</div>',
+                        unsafe_allow_html=True)
+    enable_risk_mgr = st.sidebar.checkbox("Enable Risk Manager", value=False)
+
+    risk_manager_params: dict = {}
+    if enable_risk_mgr:
+        vol_target_on = st.sidebar.checkbox("Volatility Targeting", value=False,
+                                             key="rm_vol_target_on")
+        if vol_target_on:
+            rm_c1, rm_c2 = st.sidebar.columns(2)
+            with rm_c1:
+                risk_manager_params["vol_target"] = st.number_input(
+                    "Target Vol (%)", value=15.0, min_value=1.0,
+                    max_value=100.0, step=1.0, key="rm_vol_target",
+                ) / 100.0
+            with rm_c2:
+                risk_manager_params["vol_lookback"] = st.number_input(
+                    "Vol Lookback", value=20, min_value=2, step=1,
+                    key="rm_vol_lb",
+                )
+
+        rm_c3, rm_c4 = st.sidebar.columns(2)
+        with rm_c3:
+            risk_manager_params["max_position_weight"] = st.number_input(
+                "Max Weight", value=1.0, min_value=0.1, max_value=5.0,
+                step=0.1, format="%.1f", key="rm_max_w",
+            )
+        with rm_c4:
+            risk_manager_params["max_leverage"] = st.number_input(
+                "Max Leverage", value=2.0, min_value=0.1, max_value=10.0,
+                step=0.5, format="%.1f", key="rm_max_lev",
+            )
+
+        dd_control = st.sidebar.checkbox("Drawdown Control", value=False,
+                                          key="rm_dd_on")
+        if dd_control:
+            dd_c1, dd_c2 = st.sidebar.columns(2)
+            with dd_c1:
+                dd1_pct = st.number_input(
+                    "DD Level 1 (%)", value=20.0, min_value=1.0,
+                    max_value=90.0, step=5.0, key="rm_dd1",
+                )
+            with dd_c2:
+                dd1_scale = st.number_input(
+                    "Exposure 1", value=0.5, min_value=0.0,
+                    max_value=1.0, step=0.1, format="%.1f", key="rm_dd1_s",
+                )
+            dd_c3, dd_c4 = st.sidebar.columns(2)
+            with dd_c3:
+                dd2_pct = st.number_input(
+                    "DD Level 2 (%)", value=30.0, min_value=1.0,
+                    max_value=99.0, step=5.0, key="rm_dd2",
+                )
+            with dd_c4:
+                dd2_scale = st.number_input(
+                    "Exposure 2", value=0.0, min_value=0.0,
+                    max_value=1.0, step=0.1, format="%.1f", key="rm_dd2_s",
+                )
+            risk_manager_params["dd_thresholds"] = [
+                (dd1_pct / 100.0, dd1_scale),
+                (dd2_pct / 100.0, dd2_scale),
+            ]
+
+    # ── Advanced Engine Settings ────────────────────────────────────
+    with st.sidebar.expander("Advanced Settings", expanded=False):
+        risk_free_rate = st.number_input(
+            "Risk-Free Rate (%)", value=0.0, min_value=0.0,
+            max_value=20.0, step=0.5, format="%.2f", key="adv_rfr",
+        ) / 100.0
+        close_on_end = st.checkbox(
+            "Close Positions at End", value=False, key="adv_close",
+        )
+        compute_regimes = st.checkbox(
+            "Compute Regimes", value=True, key="adv_regimes",
+        )
+        volume_limit_on = st.checkbox(
+            "Volume Limit", value=False, key="adv_vol_on",
+        )
+        volume_limit = None
+        if volume_limit_on:
+            volume_limit = st.number_input(
+                "Max % of Bar Volume", value=2.0, min_value=0.1,
+                max_value=100.0, step=0.5, key="adv_vol_pct",
+            ) / 100.0
+        periods_per_year = st.number_input(
+            "Periods/Year (0 = auto)", value=0, min_value=0,
+            max_value=525_600, step=1, key="adv_ppy",
+        )
+
     return {
         "strategy_name": strategy_name,
         "data_path": data_path,
@@ -197,6 +335,14 @@ def render() -> dict:
         "take_profit_pct": take_profit_pct,
         "selected_indicators": selected_indicators,
         "strategy_overrides": strategy_overrides,
+        "cost_model_type": cost_model_type,
+        "cost_model_params": cost_model_params,
+        "risk_manager_params": risk_manager_params if enable_risk_mgr else None,
+        "risk_free_rate": risk_free_rate,
+        "close_on_end": close_on_end,
+        "compute_regimes": compute_regimes,
+        "volume_limit": volume_limit,
+        "periods_per_year": periods_per_year,
     }
 
 

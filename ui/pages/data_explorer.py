@@ -25,7 +25,10 @@ def _tf_sort_key(tf: str) -> int:
 def render(tab, ctx: dict) -> None:
     """Render the Data Explorer tab."""
     from data.query.loader import list_available, scan_symbol
-    from data.research.analytics import drawdown, realized_volatility, rolling_atr
+    from data.research.analytics import (
+        drawdown, intraday_seasonality, realized_volatility, rolling_atr,
+        session_heatmap_data, spread_stats,
+    )
     from data.research.multi_timeframe import TIMEFRAME_MAP, load_timeframe
     from data.research.returns import add_returns
     from data.research.sessions import SESSIONS
@@ -120,8 +123,9 @@ def render(tab, ctx: dict) -> None:
         m4.metric("Close", f"{df['close'][-1]:.5f}")
 
         # ── Tabs ────────────────────────────────────────────────
-        tab_candle, tab_returns, tab_vol, tab_dd = st.tabs(
-            ["Candlestick", "Returns", "Volatility", "Drawdown"],
+        tab_candle, tab_returns, tab_vol, tab_dd, tab_season, tab_heatmap = st.tabs(
+            ["Candlestick", "Returns", "Volatility", "Drawdown",
+             "Seasonality", "Session Heatmap"],
         )
 
         with tab_candle:
@@ -236,3 +240,139 @@ def render(tab, ctx: dict) -> None:
 
             max_dd = df_dd["max_drawdown"].min()
             st.metric("Max Drawdown", f"{max_dd:.4%}")
+
+        with tab_season:
+            season_data = intraday_seasonality(df)
+            if season_data.is_empty():
+                st.warning("Not enough intraday data for seasonality analysis.")
+            else:
+                hours = season_data["hour"].to_list()
+                means = season_data["mean_return"].to_list()
+                stds = season_data["std_return"].to_list()
+                counts = season_data["bar_count"].to_list()
+
+                # Mean return by hour
+                colors = ["#3fb950" if v >= 0 else "#f85149" for v in means]
+                fig_ret = go.Figure(go.Bar(
+                    x=hours, y=means, marker_color=colors, opacity=0.85,
+                    text=[f"{v:.6f}" for v in means], textposition="outside",
+                ))
+                fig_ret.update_layout(
+                    title="Mean Log Return by Hour (UTC)",
+                    xaxis_title="Hour", yaxis_title="Mean Return",
+                    xaxis={"dtick": 1},
+                    height=400, **PLOTLY_DARK,
+                )
+                st.plotly_chart(fig_ret, use_container_width=True, key="de_season_ret")
+
+                # Volatility by hour
+                fig_vol = go.Figure(go.Bar(
+                    x=hours, y=stds, marker_color="#FF9800", opacity=0.8,
+                ))
+                fig_vol.update_layout(
+                    title="Return Std Dev by Hour (UTC)",
+                    xaxis_title="Hour", yaxis_title="Std Dev",
+                    xaxis={"dtick": 1},
+                    height=350, **PLOTLY_DARK,
+                )
+                st.plotly_chart(fig_vol, use_container_width=True, key="de_season_vol")
+
+                # Spread stats by hour
+                sprd = spread_stats(df)
+                if not sprd.is_empty():
+                    fig_sprd = go.Figure()
+                    fig_sprd.add_trace(go.Scatter(
+                        x=sprd["hour"].to_list(),
+                        y=sprd["mean_spread"].to_list(),
+                        mode="lines+markers", name="Mean Spread",
+                        line={"color": "#2196F3"},
+                    ))
+                    fig_sprd.add_trace(go.Scatter(
+                        x=sprd["hour"].to_list(),
+                        y=sprd["median_spread"].to_list(),
+                        mode="lines+markers", name="Median Spread",
+                        line={"color": "#9C27B0", "dash": "dash"},
+                    ))
+                    fig_sprd.update_layout(
+                        title="Bid-Ask Spread (High-Low) by Hour (UTC)",
+                        xaxis_title="Hour", yaxis_title="Spread",
+                        xaxis={"dtick": 1},
+                        height=350, hovermode="x unified", **PLOTLY_DARK,
+                    )
+                    st.plotly_chart(fig_sprd, use_container_width=True, key="de_season_sprd")
+
+                # Bar count by hour
+                fig_cnt = go.Figure(go.Bar(
+                    x=hours, y=counts, marker_color="#607D8B", opacity=0.7,
+                ))
+                fig_cnt.update_layout(
+                    title="Bar Count by Hour (UTC)",
+                    xaxis_title="Hour", yaxis_title="Count",
+                    xaxis={"dtick": 1},
+                    height=300, **PLOTLY_DARK,
+                )
+                st.plotly_chart(fig_cnt, use_container_width=True, key="de_season_cnt")
+
+        with tab_heatmap:
+            hm_data = session_heatmap_data(df)
+            if hm_data.is_empty():
+                st.warning("Not enough data for session heatmap.")
+            else:
+                _DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+
+                hm_metric = st.radio(
+                    "Heatmap metric",
+                    ["mean_return", "mean_abs_return"],
+                    format_func=lambda x: {
+                        "mean_return": "Mean Return (directional)",
+                        "mean_abs_return": "Mean |Return| (activity)",
+                    }[x],
+                    horizontal=True, key="de_hm_metric",
+                )
+
+                # Pivot to weekday x hour matrix
+                pivot = hm_data.pivot(
+                    on="hour", index="weekday", values=hm_metric,
+                ).sort("weekday")
+                hour_cols = sorted(
+                    [c for c in pivot.columns if c != "weekday"],
+                    key=lambda c: int(c),
+                )
+                z = pivot.select(hour_cols).to_numpy()
+                weekdays = pivot["weekday"].to_list()
+                y_labels = [_DAY_LABELS[w - 1] if 1 <= w <= 7 else str(w)
+                            for w in weekdays]
+                x_labels = [str(h) for h in hour_cols]
+
+                colorscale = "RdYlGn" if hm_metric == "mean_return" else "YlOrRd"
+                zmid = 0.0 if hm_metric == "mean_return" else None
+
+                fig_hm = go.Figure(go.Heatmap(
+                    z=z, x=x_labels, y=y_labels,
+                    colorscale=colorscale, zmid=zmid,
+                    hovertemplate="Day: %{y}<br>Hour: %{x}<br>Value: %{z:.6f}<extra></extra>",
+                ))
+                fig_hm.update_layout(
+                    title=f"Session Heatmap: {hm_metric.replace('_', ' ').title()} by Day & Hour (UTC)",
+                    xaxis_title="Hour (UTC)", yaxis_title="Day of Week",
+                    height=400, **PLOTLY_DARK,
+                )
+                st.plotly_chart(fig_hm, use_container_width=True, key="de_heatmap")
+
+                # Bar count heatmap
+                pivot_cnt = hm_data.pivot(
+                    on="hour", index="weekday", values="bar_count",
+                ).sort("weekday")
+                z_cnt = pivot_cnt.select(hour_cols).fill_null(0).to_numpy()
+
+                fig_cnt = go.Figure(go.Heatmap(
+                    z=z_cnt, x=x_labels, y=y_labels,
+                    colorscale="Blues",
+                    hovertemplate="Day: %{y}<br>Hour: %{x}<br>Bars: %{z}<extra></extra>",
+                ))
+                fig_cnt.update_layout(
+                    title="Bar Count by Day & Hour (UTC)",
+                    xaxis_title="Hour (UTC)", yaxis_title="Day of Week",
+                    height=350, **PLOTLY_DARK,
+                )
+                st.plotly_chart(fig_cnt, use_container_width=True, key="de_heatmap_cnt")

@@ -24,7 +24,7 @@ def render(tab, ctx: dict) -> None:
         </div>
         """, unsafe_allow_html=True)
 
-        mc1, mc2, mc3, mc4 = st.columns(4)
+        mc1, mc2, mc3, mc4, mc5 = st.columns(5)
         with mc1:
             mc_paths = st.number_input("Paths", value=500, min_value=10,
                                        max_value=100_000, step=100, key="mc_paths")
@@ -35,6 +35,11 @@ def render(tab, ctx: dict) -> None:
             mc_block = st.number_input("Block Size", value=20, min_value=2,
                                        key="mc_block")
         with mc4:
+            mc_ruin = st.number_input("Ruin Threshold (%)", value=50.0,
+                                       min_value=1.0, max_value=99.0,
+                                       step=5.0, key="mc_ruin",
+                                       help="Capital loss % to count as ruin")
+        with mc5:
             mc_seed = st.number_input("Seed", value=42, min_value=0,
                                       key="mc_seed")
 
@@ -56,7 +61,16 @@ def render(tab, ctx: dict) -> None:
                 n_paths=mc_paths,
                 method=mc_method,
                 block_size=mc_block,
+                ruin_threshold=mc_ruin / 100.0,
                 seed=mc_seed,
+                cost_model_type=ctx["cost_model_type"],
+                cost_model_params=ctx["cost_model_params"],
+                risk_manager_params=ctx["risk_manager_params"],
+                risk_free_rate=ctx["risk_free_rate"],
+                close_on_end=ctx["close_on_end"],
+                compute_regimes=ctx["compute_regimes"],
+                volume_limit=ctx["volume_limit"],
+                periods_per_year=ctx["periods_per_year"],
             )
             with st.spinner(f"Simulating {mc_paths} paths..."):
                 try:

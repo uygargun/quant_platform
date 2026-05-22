@@ -263,6 +263,20 @@ def render(tab, ctx: dict) -> None:
             bay_seed = st.number_input("Seed", value=42, min_value=0,
                                        key="bay_seed")
 
+        oc7, oc8 = st.columns(2)
+        with oc7:
+            bay_timeout = st.number_input(
+                "Timeout (seconds)", value=0, min_value=0,
+                max_value=3600, key="bay_timeout",
+                help="0 = no limit",
+            )
+        with oc8:
+            bay_n_jobs = st.number_input(
+                "Parallel Jobs", value=1, min_value=1,
+                max_value=16, key="bay_n_jobs",
+                help="1 = sequential",
+            )
+
         col_info, col_btn = st.columns([1, 1])
         with col_info:
             st.caption(f"{bay_trials} trials planned")
@@ -283,11 +297,22 @@ def render(tab, ctx: dict) -> None:
                 stop_loss_pct=ctx["stop_loss_pct"],
                 take_profit_pct=ctx["take_profit_pct"],
                 target=bay_target,
+                minimize=bay_target == "max_drawdown",
                 n_trials=bay_trials,
+                timeout=bay_timeout if bay_timeout > 0 else None,
                 pruning=bay_pruning,
                 early_stopping_rounds=bay_early if bay_early > 0 else None,
+                n_jobs=bay_n_jobs,
                 top=bay_top,
                 seed=bay_seed,
+                cost_model_type=ctx["cost_model_type"],
+                cost_model_params=ctx["cost_model_params"],
+                risk_manager_params=ctx["risk_manager_params"],
+                risk_free_rate=ctx["risk_free_rate"],
+                close_on_end=ctx["close_on_end"],
+                compute_regimes=ctx["compute_regimes"],
+                volume_limit=ctx["volume_limit"],
+                periods_per_year=ctx["periods_per_year"],
             )
             with st.spinner(f"Running {bay_trials} Bayesian trials..."):
                 try:

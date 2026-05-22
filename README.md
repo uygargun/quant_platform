@@ -13,13 +13,14 @@ lineage-bound, and defensible before they are treated as deployable.
 - **Backtesting Engine** -- Pandas/Numba holdings-based accounting with next-open fills, intrabar stop-loss/take-profit, and multiple position modes
 - **Strategy Framework** -- SMA Cross, RSI, and composable indicator-combo strategies with binary/continuous signal modes
 - **Indicators** -- Trend, momentum, mean-reversion, and volatility indicators outputting normalized [-1, 1] signals
-- **Optimization** -- Grid search and Bayesian (Optuna TPE) parameter optimization with execution parameter sweeps
-- **Risk Management** -- Configurable position modes (pyramiding / one-position-only), stop-loss, take-profit, and cost models
+- **Optimization** -- Grid search and Bayesian (Optuna TPE) parameter optimization with execution parameter sweeps and parallel jobs
+- **Cost Models** -- Flat, half-spread, volatility-adjusted slippage, square-root market impact, and zero-cost models selectable from the dashboard
+- **Risk Management** -- Volatility targeting, position/leverage constraints, drawdown-based exposure reduction, stop-loss, take-profit, and configurable position modes
 - **Validation** -- Purged walk-forward validation with embargo, deflated Sharpe, multiple-testing-aware trial accounting
-- **Monte Carlo** -- Block bootstrap and circular-shift permutation simulations with ruin probability
-- **Research Pipeline** -- Auto-research with indicator selection, correlation filtering, and holdout validation
+- **Monte Carlo** -- Block bootstrap and circular-shift permutation simulations with configurable ruin threshold
+- **Research Pipeline** -- Auto-research with indicator selection, indicator and strategy correlation filtering, and holdout validation
 - **Experiment Store** -- SQLite-backed persistence with manifests, run status, metrics, trades, and equity artifacts
-- **Dashboard** -- Streamlit UI with 7 interactive pages
+- **Dashboard** -- Streamlit UI with 7 interactive pages, full sidebar configuration for cost models, risk controls, and advanced engine settings
 - **API** -- FastAPI service layer with typed request/response contracts
 - **CLI** -- Unified `qp` command for backtest, optimize, research, download, dashboard, and API
 
@@ -29,11 +30,11 @@ lineage-bound, and defensible before they are treated as deployable.
 quant_platform/
 +-- config/            # BacktestConfig, cost models, position modes
 +-- data/              # Data ingestion, lake storage, catalog, validation, research features
-+-- engine/            # Backtester, optimizer, bayesian optimizer, monte carlo, metrics
++-- engine/            # Backtester, optimizer, bayesian optimizer, monte carlo, metrics, risk manager
 +-- indicators/        # Trend, momentum, mean-reversion, volatility indicators
 +-- models/            # Shared market and institutional contract models
 +-- research/          # Candidate strategy generation and research pipeline
-+-- services/          # Typed request/response service layer and data bridge
++-- services/          # Typed request/response service layer, config builder, and data bridge
 +-- storage/           # SQLite-backed experiment store and artifact references
 +-- strategy/          # Strategy base classes: SMACross, RSI, IndicatorCombo
 +-- api/               # FastAPI endpoints
@@ -61,6 +62,38 @@ All strategies support two signal modes configurable from the sidebar:
 | Stop-Loss | Disabled | Intrabar stop-loss trigger (percentage) |
 | Take-Profit | Disabled | Intrabar take-profit trigger (percentage) |
 
+### Cost Models
+
+Selectable from the sidebar:
+
+| Model | Description |
+|-------|-------------|
+| Flat (bps) | Flat basis-point cost on trade notional (default) |
+| Half-Spread | Bid-ask spread crossing model |
+| Vol-Adjusted Slippage | Volatility-proportional slippage + flat commission |
+| Sqrt Market Impact | Square-root market impact model for institutional-size orders |
+| Zero Cost | No transaction costs (benchmarking) |
+
+### Risk Manager
+
+Optional risk management layer applied per-bar between signal generation and execution:
+
+- **Volatility Targeting** -- Scale signals to achieve a target annual portfolio volatility
+- **Position Constraints** -- Max absolute weight per asset and total leverage cap
+- **Drawdown Control** -- Piecewise-linear exposure reduction (e.g., 20% DD -> 50% exposure, 30% DD -> flat)
+
+### Advanced Engine Settings
+
+Accessible via the sidebar expander:
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Risk-Free Rate | 0% | For Sharpe ratio calculation |
+| Close on End | Off | Force liquidation at backtest end |
+| Compute Regimes | On | Enable market regime detection |
+| Volume Limit | Off | Max fraction of bar volume per fill |
+| Periods/Year | Auto | Override auto-inferred bar frequency (e.g., 365 for crypto) |
+
 ### Optimization
 
 Both Grid Search and Bayesian optimization support sweeping:
@@ -69,18 +102,21 @@ Both Grid Search and Bayesian optimization support sweeping:
 - Signal mode (continuous vs binary)
 - Position mode (pyramiding vs one-position-only)
 - Stop-loss and take-profit percentages
+- Parallel execution (configurable n_jobs)
+- Auto-minimize for max_drawdown target
+- Bayesian-specific: timeout, early stopping, pruning
 
 ### Dashboard Pages
 
 | Page | Description |
 |------|-------------|
-| Backtest | Single-run execution with equity curve, trade log, and metrics |
-| Optimization | Grid search with heatmaps and top-N results |
-| Bayesian | Optuna TPE with convergence, parameter importance, and parallel coordinates |
-| Monte Carlo | Bootstrap simulation with confidence intervals and ruin probability |
-| Research | Auto-research pipeline with indicator selection and holdout validation |
-| History | Browse and compare persisted experiment runs |
-| Data Explorer | Explore and visualize market data |
+| Backtest | Single-run execution with equity curve, drawdown chart, trade log, regime breakdown, and approval validation |
+| Optimization | Grid search with heatmaps, top-N results, and parallel jobs |
+| Bayesian | Optuna TPE with convergence, parameter importance, parallel coordinates, timeout, and parallel jobs |
+| Monte Carlo | Bootstrap simulation with configurable ruin threshold, fan charts, and return/drawdown distributions |
+| Research | Auto-research pipeline with indicator and strategy correlation filtering, holdout validation |
+| History | Browse and compare persisted experiment runs with overlaid equity/drawdown charts |
+| Data Explorer | Candlestick, returns, volatility, drawdown, intraday seasonality, and session heatmap analysis |
 
 ## Institutional Contracts
 
@@ -149,6 +185,8 @@ qp dashboard
 ```python
 from config import BacktestConfig
 from engine import Backtester
+from engine.costs import SqrtImpactCost
+from engine.risk import RiskManager
 from services.data_service import load_file
 from strategy import SMACross
 
@@ -159,8 +197,15 @@ result = Backtester(BacktestConfig(
     commission_pct=0.05,
     slippage_pct=0.02,
     position_mode="one_position_only",
-    stop_loss_pct=0.03,       # 3% stop-loss
-    take_profit_pct=0.05,     # 5% take-profit
+    stop_loss_pct=0.03,
+    take_profit_pct=0.05,
+    cost_model=SqrtImpactCost(sigma=0.05),
+    risk_manager=RiskManager(
+        vol_target=0.15,
+        max_leverage=2.0,
+        dd_thresholds=[(0.20, 0.5), (0.30, 0.0)],
+    ),
+    close_on_end=True,
 )).run(prices, signals)
 print(result.summary())
 ```

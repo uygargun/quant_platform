@@ -1,10 +1,10 @@
 """ResearchService — automated strategy research pipeline."""
 from __future__ import annotations
 
-from config import BacktestConfig
 from models.institutional import ValidationConfig
 from research.generator import StrategyGenerator
 from research.pipeline import ResearchPipeline
+from services.config_builder import build_config
 from services.data_service import load_bundle
 from storage.integration import auto_persist
 
@@ -24,13 +24,19 @@ class ResearchService:
 
     def run(self, cfg: ResearchConfig) -> ResearchResponse:
         """Execute the research pipeline and return a typed response."""
-        bt_cfg = BacktestConfig(
-            initial_capital=cfg.capital,
-            commission_pct=cfg.commission,
-            slippage_pct=cfg.slippage,
+        bt_cfg = build_config(
+            cfg.capital, cfg.commission, cfg.slippage,
             position_mode=cfg.position_mode,
             stop_loss_pct=cfg.stop_loss_pct,
             take_profit_pct=cfg.take_profit_pct,
+            cost_model_type=cfg.cost_model_type,
+            cost_model_params=cfg.cost_model_params,
+            risk_manager_params=cfg.risk_manager_params,
+            risk_free_rate=cfg.risk_free_rate,
+            close_on_end=cfg.close_on_end,
+            compute_regimes=cfg.compute_regimes,
+            volume_limit=cfg.volume_limit,
+            periods_per_year=cfg.periods_per_year,
         )
         bundle = load_bundle(
             cfg.data_path,

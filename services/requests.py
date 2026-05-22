@@ -28,6 +28,14 @@ class BacktestRequest:
     validation_config: ValidationConfig | dict | None = None
     execution_model: ExecutionModel | dict | None = None
     research_mode: bool = False
+    cost_model_type: str = "flat"
+    cost_model_params: dict[str, Any] = field(default_factory=dict)
+    risk_manager_params: dict[str, Any] | None = None
+    risk_free_rate: float = 0.0
+    close_on_end: bool = False
+    compute_regimes: bool = True
+    volume_limit: float | None = None
+    periods_per_year: int = 0
 
 
 @dataclass
@@ -50,6 +58,14 @@ class MonteCarloRequest:
     dataset_ref: DatasetRef | dict | None = None
     execution_model: ExecutionModel | dict | None = None
     research_mode: bool = False
+    cost_model_type: str = "flat"
+    cost_model_params: dict[str, Any] = field(default_factory=dict)
+    risk_manager_params: dict[str, Any] | None = None
+    risk_free_rate: float = 0.0
+    close_on_end: bool = False
+    compute_regimes: bool = True
+    volume_limit: float | None = None
+    periods_per_year: int = 0
 
 
 @dataclass
@@ -73,6 +89,14 @@ class OptimizationRequest:
     execution_model: ExecutionModel | dict | None = None
     research_mode: bool = False
     manual_reruns: int = 0
+    cost_model_type: str = "flat"
+    cost_model_params: dict[str, Any] = field(default_factory=dict)
+    risk_manager_params: dict[str, Any] | None = None
+    risk_free_rate: float = 0.0
+    close_on_end: bool = False
+    compute_regimes: bool = True
+    volume_limit: float | None = None
+    periods_per_year: int = 0
 
 
 @dataclass
@@ -101,6 +125,14 @@ class BayesianOptimizationRequest:
     execution_model: ExecutionModel | dict | None = None
     research_mode: bool = False
     manual_reruns: int = 0
+    cost_model_type: str = "flat"
+    cost_model_params: dict[str, Any] = field(default_factory=dict)
+    risk_manager_params: dict[str, Any] | None = None
+    risk_free_rate: float = 0.0
+    close_on_end: bool = False
+    compute_regimes: bool = True
+    volume_limit: float | None = None
+    periods_per_year: int = 0
 
 
 @dataclass
@@ -127,3 +159,11 @@ class ResearchConfig:
     execution_model: ExecutionModel | dict | None = None
     research_mode: bool = False
     manual_reruns: int = 0
+    cost_model_type: str = "flat"
+    cost_model_params: dict[str, Any] = field(default_factory=dict)
+    risk_manager_params: dict[str, Any] | None = None
+    risk_free_rate: float = 0.0
+    close_on_end: bool = False
+    compute_regimes: bool = True
+    volume_limit: float | None = None
+    periods_per_year: int = 0

@@ -3,11 +3,11 @@ from __future__ import annotations
 
 from typing import Any
 
-from config import BacktestConfig
 from engine import Backtester
 from engine.approval import StrategyValidator
 from engine.regime import per_regime_metrics
 from models.institutional import TrialAccounting
+from services.config_builder import build_config
 from services.data_service import load_bundle
 from storage.integration import auto_persist
 from strategy import BaseStrategy
@@ -42,11 +42,19 @@ class BacktestService:
             global registry.
         """
         strategy_cls = self._registry.resolve(req.strategy_name, overrides=overrides)
-        cfg = self._build_config(
+        cfg = build_config(
             req.capital, req.commission, req.slippage,
             position_mode=req.position_mode,
             stop_loss_pct=req.stop_loss_pct,
             take_profit_pct=req.take_profit_pct,
+            cost_model_type=req.cost_model_type,
+            cost_model_params=req.cost_model_params,
+            risk_manager_params=req.risk_manager_params,
+            risk_free_rate=req.risk_free_rate,
+            close_on_end=req.close_on_end,
+            compute_regimes=req.compute_regimes,
+            volume_limit=req.volume_limit,
+            periods_per_year=req.periods_per_year,
         )
 
         bundle = load_bundle(
@@ -124,22 +132,3 @@ class BacktestService:
         response.experiment_id = auto_persist(response)
         return response
 
-    # -- helpers --
-
-    @staticmethod
-    def _build_config(
-        capital: float,
-        commission: float,
-        slippage: float,
-        position_mode: str = "pyramiding",
-        stop_loss_pct: float | None = None,
-        take_profit_pct: float | None = None,
-    ) -> BacktestConfig:
-        return BacktestConfig(
-            initial_capital=capital,
-            commission_pct=commission,
-            slippage_pct=slippage,
-            position_mode=position_mode,
-            stop_loss_pct=stop_loss_pct,
-            take_profit_pct=take_profit_pct,
-        )

@@ -203,7 +203,7 @@ def render(tab, ctx: dict) -> None:
         # Merge execution params into the grid
         full_grid = {**param_grid, **exec_grid}
 
-        oc1, oc2 = st.columns(2)
+        oc1, oc2, oc3 = st.columns(3)
         with oc1:
             opt_target = st.selectbox("Target Metric",
                                       ["sharpe", "sortino", "total_return",
@@ -212,6 +212,10 @@ def render(tab, ctx: dict) -> None:
         with oc2:
             opt_top = st.number_input("Show Top N", value=10, min_value=1,
                                       max_value=50, key="opt_top")
+        with oc3:
+            opt_n_jobs = st.number_input("Parallel Jobs", value=1, min_value=1,
+                                          max_value=16, key="opt_n_jobs",
+                                          help="1 = sequential")
 
         total_combos = 1
         for v in full_grid.values():
@@ -238,6 +242,16 @@ def render(tab, ctx: dict) -> None:
                 take_profit_pct=ctx["take_profit_pct"],
                 target=opt_target,
                 top=opt_top,
+                minimize=opt_target == "max_drawdown",
+                n_jobs=opt_n_jobs,
+                cost_model_type=ctx["cost_model_type"],
+                cost_model_params=ctx["cost_model_params"],
+                risk_manager_params=ctx["risk_manager_params"],
+                risk_free_rate=ctx["risk_free_rate"],
+                close_on_end=ctx["close_on_end"],
+                compute_regimes=ctx["compute_regimes"],
+                volume_limit=ctx["volume_limit"],
+                periods_per_year=ctx["periods_per_year"],
             )
             with st.spinner(f"Optimizing {total_combos} combinations..."):
                 try:

@@ -146,7 +146,7 @@ def render(tab, ctx: dict) -> None:
             with rc4:
                 r_seed = st.number_input("Seed", value=42, min_value=0, key="r_seed")
 
-            rc5, rc6, rc7, rc8 = st.columns(4)
+            rc5, rc6, rc7, rc8, rc9 = st.columns(5)
             with rc5:
                 r_min_ind = st.number_input("Min Indicators", value=2, min_value=1,
                                             max_value=8, key="r_min_ind")
@@ -159,6 +159,11 @@ def render(tab, ctx: dict) -> None:
             with rc8:
                 r_ind_corr = st.number_input("Indicator Corr", value=0.9, min_value=0.1,
                                               max_value=1.0, step=0.05, key="r_ind_corr")
+            with rc9:
+                r_strat_corr = st.number_input("Strategy Corr", value=0.8,
+                                                min_value=0.1, max_value=1.0,
+                                                step=0.05, key="r_strat_corr",
+                                                help="Reject correlated strategies")
 
             run_research = st.button("Run Research", type="primary",
                                      use_container_width=True, key="btn_research")
@@ -179,8 +184,17 @@ def render(tab, ctx: dict) -> None:
                 min_indicators=r_min_ind,
                 max_indicators=r_max_ind,
                 indicator_corr=r_ind_corr,
+                strategy_corr=r_strat_corr,
                 max_grid=r_max_grid,
                 seed=r_seed,
+                cost_model_type=ctx["cost_model_type"],
+                cost_model_params=ctx["cost_model_params"],
+                risk_manager_params=ctx["risk_manager_params"],
+                risk_free_rate=ctx["risk_free_rate"],
+                close_on_end=ctx["close_on_end"],
+                compute_regimes=ctx["compute_regimes"],
+                volume_limit=ctx["volume_limit"],
+                periods_per_year=ctx["periods_per_year"],
             )
             with st.spinner(f"Running {r_trials} trials..."):
                 try:

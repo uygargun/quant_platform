@@ -83,6 +83,14 @@ def render(tab, ctx: dict) -> None:
                 stop_loss_pct=ctx["stop_loss_pct"],
                 take_profit_pct=ctx["take_profit_pct"],
                 validate=run_validate,
+                cost_model_type=ctx["cost_model_type"],
+                cost_model_params=ctx["cost_model_params"],
+                risk_manager_params=ctx["risk_manager_params"],
+                risk_free_rate=ctx["risk_free_rate"],
+                close_on_end=ctx["close_on_end"],
+                compute_regimes=ctx["compute_regimes"],
+                volume_limit=ctx["volume_limit"],
+                periods_per_year=ctx["periods_per_year"],
             )
             with st.spinner("Running backtest..."):
                 try:
