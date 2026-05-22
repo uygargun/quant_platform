@@ -294,8 +294,15 @@ class WalkForwardOptimizer:
             nonlocal _interrupted
             _interrupted = True
 
-        prev_handler = signal.getsignal(signal.SIGINT)
-        signal.signal(signal.SIGINT, _on_signal)
+        # signal.signal() only works from the main thread; skip graceful
+        # interrupt handling when called from a worker thread (e.g. Streamlit).
+        import threading
+        _can_signal = threading.current_thread() is threading.main_thread()
+
+        prev_handler = None
+        if _can_signal:
+            prev_handler = signal.getsignal(signal.SIGINT)
+            signal.signal(signal.SIGINT, _on_signal)
 
         try:
             return self._run_folds(
@@ -303,7 +310,8 @@ class WalkForwardOptimizer:
                 segment_results, lambda: _interrupted,
             )
         finally:
-            signal.signal(signal.SIGINT, prev_handler)
+            if _can_signal:
+                signal.signal(signal.SIGINT, prev_handler)
             if _interrupted:
                 raise KeyboardInterrupt("Walk-forward interrupted between folds")
 
