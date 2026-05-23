@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import os.path
 import re
 from pathlib import Path
 
@@ -14,6 +16,7 @@ log = logging.getLogger(__name__)
 
 _PRESETS_DIR = Path("presets")
 _SAFE_NAME_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$")
+_PRESETS_ABS = os.path.normpath(os.path.abspath(str(_PRESETS_DIR)))
 
 _PRESET_KEYS = [
     "strategy_name", "capital", "commission", "slippage",
@@ -46,17 +49,30 @@ def sanitize_name(name: str) -> str:
     return re.sub(r"[^a-zA-Z0-9_-]", "_", name).strip("_") or "preset"
 
 
+def _safe_path(filename: str) -> str:
+    """Resolve *filename* under the presets dir and verify containment.
+
+    Uses os.path.normpath + startswith — the pattern CodeQL recognises
+    as a path-injection sanitiser.
+    """
+    joined = os.path.join(_PRESETS_ABS, filename)
+    normalised = os.path.normpath(joined)
+    if not normalised.startswith(_PRESETS_ABS + os.sep):
+        raise ValueError("Invalid preset path")
+    return normalised
+
+
 def save_preset(ctx: dict, name: str) -> Path:
     """Save preset to the presets/ directory."""
     _PRESETS_DIR.mkdir(exist_ok=True)
     clean = sanitize_name(name)
     if not _SAFE_NAME_RE.match(clean):
         raise ValueError("Preset name must start with a letter or digit")
-    filename = f"{clean}.json"
-    path = _PRESETS_DIR / filename
-    path.write_text(export_preset(ctx, name))
-    log.info("Preset saved: %s", path)
-    return path
+    target = _safe_path(f"{clean}.json")
+    with open(target, "w") as f:
+        f.write(export_preset(ctx, name))
+    log.info("Preset saved: %s", target)
+    return Path(target)
 
 
 def list_presets() -> list[str]:
@@ -71,8 +87,8 @@ def load_preset(name: str) -> dict:
     clean = sanitize_name(name)
     if not _SAFE_NAME_RE.match(clean):
         raise ValueError("Invalid preset name")
-    filename = f"{clean}.json"
-    path = _PRESETS_DIR / filename
-    if not path.exists():
+    target = _safe_path(f"{clean}.json")
+    if not os.path.exists(target):
         raise FileNotFoundError(f"Preset not found: {name}")
-    return import_preset(path.read_text())
+    with open(target) as f:
+        return import_preset(f.read())
