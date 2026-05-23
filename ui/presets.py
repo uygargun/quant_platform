@@ -43,7 +43,11 @@ def save_preset(ctx: dict, name: str) -> Path:
     """Save preset to the presets/ directory."""
     _PRESETS_DIR.mkdir(exist_ok=True)
     safe_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in name)
-    path = _PRESETS_DIR / f"{safe_name}.json"
+    if not safe_name:
+        raise ValueError("Preset name must contain at least one valid character")
+    path = (_PRESETS_DIR / f"{safe_name}.json").resolve()
+    if not path.is_relative_to(_PRESETS_DIR.resolve()):
+        raise ValueError("Invalid preset name")
     path.write_text(export_preset(ctx, name))
     log.info("Preset saved: %s", path)
     return path
@@ -58,7 +62,10 @@ def list_presets() -> list[str]:
 
 def load_preset(name: str) -> dict:
     """Load a named preset from the presets/ directory."""
-    path = _PRESETS_DIR / f"{name}.json"
+    safe_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in name)
+    path = (_PRESETS_DIR / f"{safe_name}.json").resolve()
+    if not path.is_relative_to(_PRESETS_DIR.resolve()):
+        raise ValueError("Invalid preset name")
     if not path.exists():
         raise FileNotFoundError(f"Preset not found: {name}")
     return import_preset(path.read_text())
