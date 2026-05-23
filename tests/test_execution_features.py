@@ -16,12 +16,10 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import numpy as np
 import pandas as pd
-import pytest
 
 from config import BacktestConfig, PositionMode
-from engine.backtest import Backtester, Result
+from engine.backtest import Backtester
 from engine.costs import FlatCost, PercentageCost, ZeroCost
-
 
 # ================================================================== #
 #  Helpers                                                             #
@@ -215,8 +213,14 @@ class TestPercentageCost:
         df = _make_df(30)
         signals = _const_signal(df, 0.5)
 
-        res_zero = Backtester(BacktestConfig(cost_model=ZeroCost(), close_on_end=True)).run(df, signals)
-        res_pct = Backtester(BacktestConfig(cost_model=PercentageCost(rate=0.005), close_on_end=True)).run(df, signals)
+        cfg_zero = BacktestConfig(
+            cost_model=ZeroCost(), close_on_end=True,
+        )
+        cfg_pct = BacktestConfig(
+            cost_model=PercentageCost(rate=0.005), close_on_end=True,
+        )
+        res_zero = Backtester(cfg_zero).run(df, signals)
+        res_pct = Backtester(cfg_pct).run(df, signals)
 
         # With commission, net return should be lower
         assert res_pct.metrics["total_return"] < res_zero.metrics["total_return"]
@@ -469,8 +473,8 @@ class TestOptimizerIntegration:
 
     def test_grid_optimizer_with_sl_tp(self):
         """GridOptimizer should accept stop_loss_pct in param grid."""
-        from strategy.base import BaseStrategy
         from engine.optimizer import GridOptimizer
+        from strategy.base import BaseStrategy
 
         class DummyStrategy(BaseStrategy):
             def __init__(self, params=None):
@@ -494,8 +498,8 @@ class TestOptimizerIntegration:
 
     def test_grid_optimizer_mixed_params(self):
         """Strategy params + config params should both work in the same grid."""
-        from strategy.base import BaseStrategy
         from engine.optimizer import GridOptimizer
+        from strategy.base import BaseStrategy
 
         class TrivialStrategy(BaseStrategy):
             def __init__(self, params=None):

@@ -8,8 +8,10 @@ Usage:
   python main.py run rsi data/btc_1h.csv --param period=14 --param oversold=25
   python main.py run sma_cross data/btc_daily_2025.csv --capital 50000 --commission 10 --plot
   python main.py run sma_cross data/btc_daily_2025.csv --validate --json --save-json out.json
-  python main.py optimize sma_cross data/btc_daily_2025.csv --grid fast=5,10,15,20 --grid slow=20,30,40,50
-  python main.py montecarlo sma_cross data/btc_daily_2025.csv --param fast=3 --param slow=5 --paths 1000
+  python main.py optimize sma_cross data/btc_daily_2025.csv \\
+    --grid fast=5,10,15,20 --grid slow=20,30,40,50
+  python main.py montecarlo sma_cross data/btc_daily_2025.csv \\
+    --param fast=3 --param slow=5 --paths 1000
   python main.py research data/btc_daily_2025.csv --trials 100 --top-k 5 --json
   python main.py list
 """
@@ -367,8 +369,10 @@ def _add_subcommands(sub) -> None:
     common.add_argument("--commission", type=float, default=5, help="Commission in bps")
     common.add_argument("--slippage", type=float, default=2, help="Slippage in bps")
     common.add_argument("--plot", action="store_true", help="Show equity chart (matplotlib)")
-    common.add_argument("--interactive", action="store_true", help="Interactive dashboard (plotly)")
-    common.add_argument("--save", type=str, default=None, help="Save chart to file (.html for interactive)")
+    common.add_argument("--interactive", action="store_true",
+                        help="Interactive dashboard (plotly)")
+    common.add_argument("--save", type=str, default=None,
+                        help="Save chart to file (.html for interactive)")
     common.add_argument("--json", action="store_true", help="Print metrics as JSON")
     common.add_argument("--save-json", type=str, default=None, help="Save JSON output to file")
 

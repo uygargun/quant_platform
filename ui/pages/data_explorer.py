@@ -27,8 +27,12 @@ def render(tab, ctx: dict) -> None:
     from data.query.gap_report import INTERVAL_SECONDS, detect_gaps, gap_summary
     from data.query.loader import list_available, scan_symbol
     from data.research.analytics import (
-        drawdown, intraday_seasonality, realized_volatility, rolling_atr,
-        session_heatmap_data, spread_stats,
+        drawdown,
+        intraday_seasonality,
+        realized_volatility,
+        rolling_atr,
+        session_heatmap_data,
+        spread_stats,
     )
     from data.research.multi_timeframe import TIMEFRAME_MAP, load_timeframe
     from data.research.returns import add_returns
@@ -354,7 +358,11 @@ def render(tab, ctx: dict) -> None:
                     hovertemplate="Day: %{y}<br>Hour: %{x}<br>Value: %{z:.6f}<extra></extra>",
                 ))
                 fig_hm.update_layout(
-                    title=f"Session Heatmap: {hm_metric.replace('_', ' ').title()} by Day & Hour (UTC)",
+                    title=(
+                        f"Session Heatmap: "
+                        f"{hm_metric.replace('_', ' ').title()} "
+                        f"by Day & Hour (UTC)"
+                    ),
                     xaxis_title="Hour (UTC)", yaxis_title="Day of Week",
                     height=400, **PLOTLY_DARK,
                 )

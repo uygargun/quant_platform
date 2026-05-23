@@ -12,8 +12,7 @@ from __future__ import annotations
 import numpy as np
 
 try:
-    from numba import njit, types
-    from numba.typed import Dict as NumbaDict
+    from numba import njit
 
     HAS_NUMBA = True
 except ImportError:

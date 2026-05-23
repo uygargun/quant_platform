@@ -6,10 +6,9 @@ from __future__ import annotations
 
 import glob
 import os
+from types import MappingProxyType
 
 import streamlit as st
-
-from types import MappingProxyType
 
 from indicators import Indicator, indicator_pool
 from services import STRATEGIES
@@ -299,6 +298,23 @@ def render() -> dict:
                 (dd2_pct / 100.0, dd2_scale),
             ]
 
+        kelly_on = st.sidebar.checkbox("Kelly Criterion Sizing", value=False,
+                                        key="rm_kelly_on")
+        if kelly_on:
+            kelly_c1, kelly_c2 = st.sidebar.columns(2)
+            with kelly_c1:
+                risk_manager_params["kelly_fraction"] = st.slider(
+                    "Kelly Fraction", 0.05, 1.0, 0.5, 0.05,
+                    key="rm_kelly_frac",
+                    help="0.5 = half-Kelly (recommended), 1.0 = full Kelly",
+                )
+            with kelly_c2:
+                risk_manager_params["kelly_lookback"] = st.number_input(
+                    "Kelly Lookback", value=252, min_value=20,
+                    max_value=1000, step=10, key="rm_kelly_lb",
+                    help="Trailing bars for return estimation",
+                )
+
     # ── Advanced Engine Settings ────────────────────────────────────
     with st.sidebar.expander("Advanced Settings", expanded=False):
         risk_free_rate = st.number_input(
@@ -325,7 +341,8 @@ def render() -> dict:
             max_value=525_600, step=1, key="adv_ppy",
         )
 
-    return {
+    # ── Preset Export/Import ───────────────────────────────────────────
+    ctx = {
         "strategy_name": strategy_name,
         "data_path": data_path,
         "params": params,
@@ -346,6 +363,40 @@ def render() -> dict:
         "volume_limit": volume_limit,
         "periods_per_year": periods_per_year,
     }
+
+    with st.sidebar.expander("Presets", expanded=False):
+        from ui.presets import export_preset, list_presets, load_preset, save_preset
+
+        preset_name = st.text_input("Preset Name", value="", key="preset_name")
+        pc1, pc2 = st.columns(2)
+        with pc1:
+            if st.button("Save", key="btn_save_preset", use_container_width=True):
+                if preset_name.strip():
+                    save_preset(ctx, preset_name.strip())
+                    st.success(f"Saved: {preset_name}")
+                else:
+                    st.warning("Enter a name")
+        with pc2:
+            st.download_button(
+                "Export JSON", export_preset(ctx),
+                "preset.json", "application/json",
+                key="btn_export_preset", use_container_width=True,
+            )
+
+        saved = list_presets()
+        if saved:
+            load_name = st.selectbox("Load Preset", [""] + saved,
+                                     key="preset_load")
+            if load_name and st.button("Load", key="btn_load_preset",
+                                        use_container_width=True):
+                try:
+                    load_preset(load_name)
+                    st.info(f"Loaded preset: {load_name}. "
+                            f"Refresh the page to apply.")
+                except Exception as e:
+                    st.error(str(e))
+
+    return ctx
 
 
 def _render_indicator_combo() -> tuple[list[Indicator], dict, dict]:

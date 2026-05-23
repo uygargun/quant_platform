@@ -5,7 +5,11 @@ here so that ``streamlit run streamlit_app.py`` continues to work.
 """
 from __future__ import annotations
 
+import logging
+
 import streamlit as st
+
+log = logging.getLogger(__name__)
 
 from services import (
     STRATEGIES,
@@ -17,7 +21,18 @@ from services import (
     WalkForwardService,
 )
 from ui import sidebar
-from ui.pages import backtest, bayesian, data_explorer, history, montecarlo, optimization, research, walkforward
+from ui.pages import (
+    backtest,
+    bayesian,
+    comparison,
+    data_explorer,
+    history,
+    montecarlo,
+    optimization,
+    portfolio,
+    research,
+    walkforward,
+)
 from ui.state import init_state
 from ui.styles import inject_css
 
@@ -67,18 +82,26 @@ def main() -> None:
         "wf_svc": wf_svc,
     })
 
+    # ── Save preferences on each rerun ──────────────────────────────
+    from ui.preferences import save_preferences
+    save_preferences(ctx)
+
     # ── Tabs ─────────────────────────────────────────────────────────
-    tab_bt, tab_de, tab_research, tab_opt, tab_bay, tab_mc, tab_wf, tab_history = st.tabs([
-        "Backtest", "Data Explorer", "Research", "Optimization",
-        "Bayesian Opt", "Monte Carlo", "Walk-Forward", "History & Compare",
+    (tab_bt, tab_cmp, tab_de, tab_research, tab_opt, tab_bay,
+     tab_mc, tab_wf, tab_port, tab_history) = st.tabs([
+        "Backtest", "Compare", "Data Explorer", "Research",
+        "Optimization", "Bayesian Opt", "Monte Carlo",
+        "Walk-Forward", "Portfolio Opt", "History & Compare",
     ])
 
     # ── Render pages ─────────────────────────────────────────────────
     backtest.render(tab_bt, ctx)
+    comparison.render(tab_cmp, ctx)
     data_explorer.render(tab_de, ctx)
     research.render(tab_research, ctx)
     optimization.render(tab_opt, ctx)
     bayesian.render(tab_bay, ctx)
     montecarlo.render(tab_mc, ctx)
     walkforward.render(tab_wf, ctx)
+    portfolio.render(tab_port, ctx)
     history.render(tab_history, ctx)

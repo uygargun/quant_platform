@@ -1,13 +1,13 @@
 """Tests for UI components — HTML escaping and rendering."""
 
-import pytest
 
 from ui.components import _safe, card_html, history_card_html, robustness_bar
 
 
 class TestSafeEscape:
     def test_escapes_html_tags(self):
-        assert _safe("<script>alert('xss')</script>") == "&lt;script&gt;alert(&#x27;xss&#x27;)&lt;/script&gt;"
+        expected = "&lt;script&gt;alert(&#x27;xss&#x27;)&lt;/script&gt;"
+        assert _safe("<script>alert('xss')</script>") == expected
 
     def test_escapes_quotes(self):
         assert _safe('test"value') == "test&quot;value"

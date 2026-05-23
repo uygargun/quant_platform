@@ -51,6 +51,10 @@ def init_state() -> None:
         "mc_result": None,
         "mc_paths_saved": 500,
         "mc_method_saved": "block",
+        # Portfolio Optimization tab
+        "port_result": None,
+        # Strategy Comparison tab
+        "cmp_result": None,
     }
     for key, default in _defaults.items():
         if key not in st.session_state:

@@ -34,7 +34,6 @@ from .requests import (
     WalkForwardRequest,
 )
 from .research_service import ResearchService
-from .walkforward_service import WalkForwardService
 from .responses import (
     BacktestInternals,
     BacktestResponse,
@@ -50,6 +49,7 @@ from .responses import (
     WalkForwardInternals,
     WalkForwardResponse,
 )
+from .walkforward_service import WalkForwardService
 
 # Strategy registry — single source of truth for name -> class mapping.
 # Immutable: dynamic strategies (indicator_combo) are passed as overrides

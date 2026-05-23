@@ -9,6 +9,7 @@ Features:
   - Position constraints: per-asset max weight + total leverage cap
   - Drawdown control: piecewise-linear exposure reduction based on live drawdown
   - Multi-asset vol balancing: scale weights inversely to asset volatility
+  - Kelly criterion sizing: scale signals by Kelly-optimal fraction of capital
 
 Integration:
   Pass a RiskManager to BacktestConfig(risk_manager=...).
@@ -41,6 +42,10 @@ class RiskManager:
                              Empty list = disabled.
         vol_balance:         Scale multi-asset weights inversely to their
                              rolling volatility (equalise risk contribution).
+        kelly_fraction:      Kelly criterion scaling factor.
+                             0 = disabled, 0.5 = half-Kelly (recommended),
+                             1.0 = full Kelly.
+        kelly_lookback:      Trailing bars for Kelly return estimation.
     """
 
     def __init__(
@@ -51,6 +56,8 @@ class RiskManager:
         max_leverage: float = 2.0,
         dd_thresholds: list[tuple[float, float]] | None = None,
         vol_balance: bool = False,
+        kelly_fraction: float = 0.0,
+        kelly_lookback: int = 252,
     ):
         self.vol_target = vol_target
         self.vol_lookback = vol_lookback
@@ -58,6 +65,8 @@ class RiskManager:
         self.max_leverage = max_leverage
         self.dd_thresholds = dd_thresholds or []
         self.vol_balance = vol_balance
+        self.kelly_fraction = kelly_fraction
+        self.kelly_lookback = max(kelly_lookback, 2)
 
         # Internal state — set by prepare() / prepare_multi()
         self._vol_scalars: np.ndarray | None = None
@@ -102,10 +111,17 @@ class RiskManager:
         raw_weight: float,
         equity: float,
         peak_equity: float,
+        equity_curve: np.ndarray | None = None,
     ) -> float:
         """Adjust a single raw signal weight for risk controls.
 
-        Order: vol target → position clamp → drawdown control.
+        Order: vol target → position clamp → drawdown control → Kelly.
+
+        Parameters
+        ----------
+        equity_curve : np.ndarray | None
+            Full equity curve up to current bar (inclusive).
+            Required for Kelly criterion; ignored if Kelly is disabled.
         """
         w = raw_weight
 
@@ -119,6 +135,10 @@ class RiskManager:
         # 3. Drawdown control
         w *= self._dd_scale(equity, peak_equity)
 
+        # 4. Kelly criterion
+        if self.kelly_fraction > 0 and equity_curve is not None:
+            w *= self._kelly_scale(equity_curve, bar)
+
         return float(w)
 
     def adjust_multi(
@@ -127,11 +147,12 @@ class RiskManager:
         raw_weights: dict[str, float],
         equity: float,
         peak_equity: float,
+        equity_curve: np.ndarray | None = None,
     ) -> dict[str, float]:
         """Adjust multi-asset raw signal weights for risk controls.
 
         Order: vol target → vol balance → position clamp →
-               leverage cap → drawdown control.
+               leverage cap → drawdown control → Kelly.
         """
         weights = dict(raw_weights)
 
@@ -164,11 +185,52 @@ class RiskManager:
         if dd_s < 1.0:
             weights = {n: w * dd_s for n, w in weights.items()}
 
+        # 6. Kelly criterion
+        if self.kelly_fraction > 0 and equity_curve is not None:
+            k = self._kelly_scale(equity_curve, bar)
+            if k < 1.0:
+                weights = {n: w * k for n, w in weights.items()}
+            else:
+                weights = {n: w * k for n, w in weights.items()}
+
         return weights
 
     # ------------------------------------------------------------------ #
     #  Internal computations                                              #
     # ------------------------------------------------------------------ #
+
+    def _kelly_scale(self, equity_curve: np.ndarray, bar: int) -> float:
+        """Compute Kelly-optimal scaling from trailing equity returns.
+
+        Uses the continuous Kelly criterion: ``f* = mean(r) / var(r)``
+        where *r* is the trailing return series over ``kelly_lookback`` bars.
+
+        The result is multiplied by ``kelly_fraction`` (half-Kelly = 0.5 is
+        standard practice) and capped at [0, 2.0] for safety.
+
+        Falls back to 1.0 if there is insufficient data.
+        """
+        lb = self.kelly_lookback
+        if bar < lb:
+            return 1.0
+
+        # Trailing equity slice
+        eq_slice = equity_curve[bar - lb : bar + 1]
+        # Compute returns from equity
+        rets = np.diff(eq_slice) / eq_slice[:-1]
+        rets = rets[np.isfinite(rets)]
+
+        if len(rets) < 2:
+            return 1.0
+
+        mu = rets.mean()
+        var = rets.var(ddof=1)
+        if var < 1e-16:
+            return 1.0
+
+        f_star = mu / var
+        scaled = self.kelly_fraction * f_star
+        return float(np.clip(scaled, 0.0, 2.0))
 
     def _compute_vol_scalars(self, closes: np.ndarray) -> np.ndarray:
         """Per-bar scalar: vol_target / rolling_realized_vol.
@@ -216,7 +278,10 @@ class RiskManager:
             rets = np.empty(n)
             rets[0] = 0.0
             rets[1:] = np.diff(c) / c[:-1]
-            rolling_std = pd.Series(rets).rolling(lb, min_periods=lb).std(ddof=1).fillna(0.0).values
+            rolling_std = (
+                pd.Series(rets).rolling(lb, min_periods=lb)
+                .std(ddof=1).fillna(0.0).values
+            )
             vol_rows.append(rolling_std * sqrt_periods)
 
         # Stack into (n_assets, n) matrix for vectorized cross-asset median

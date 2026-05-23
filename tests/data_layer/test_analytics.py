@@ -97,8 +97,9 @@ class TestRealizedVolatility:
         ppy = 252
         ann = realized_volatility(minute_df, window=window, annualize=True, periods_per_year=ppy)
         raw = realized_volatility(minute_df, window=window, annualize=False)
-        ann_vals = ann.filter(pl.col(f"realized_vol_{window}").is_not_null())[f"realized_vol_{window}"]
-        raw_vals = raw.filter(pl.col(f"realized_vol_{window}").is_not_null())[f"realized_vol_{window}"]
+        col = f"realized_vol_{window}"
+        ann_vals = ann.filter(pl.col(col).is_not_null())[col]
+        raw_vals = raw.filter(pl.col(col).is_not_null())[col]
         expected = raw_vals * ((ppy / window) ** 0.5)
         diff = (ann_vals - expected).abs()
         assert diff.max() < 1e-12

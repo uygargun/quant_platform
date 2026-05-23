@@ -226,7 +226,12 @@ def _prepare_cost_arrays(cost_model, closes: np.ndarray, n: int):
     if the cost model is not supported by the fast path.
     """
     from engine.costs import (
-        FlatCost, PercentageCost, SpreadCost, SqrtImpactCost, VolSlippageCost, ZeroCost,
+        FlatCost,
+        PercentageCost,
+        SpreadCost,
+        SqrtImpactCost,
+        VolSlippageCost,
+        ZeroCost,
     )
 
     cost_rate = np.zeros(n, dtype=np.float64)
@@ -337,6 +342,10 @@ class Backtester:
             return False
         if self.cfg.stop_loss_pct is not None or self.cfg.take_profit_pct is not None:
             return False
+        # Kelly criterion requires Python path (trailing equity lookback)
+        rm = self.cfg.risk_manager
+        if rm is not None and getattr(rm, "kelly_fraction", 0) > 0:
+            return False
         # Check cost model is a known type
         cost_info = _prepare_cost_arrays(self.cfg.cost_model, np.empty(0), 0)
         return cost_info is not None
@@ -391,7 +400,8 @@ class Backtester:
         returns = equity_curve.pct_change().fillna(0.0)
         trade_pnls = trades_df["pnl"] if len(trades_df) > 0 else pd.Series(dtype=float)
         rf = self.cfg.risk_free_rate
-        periods = self.cfg.periods_per_year if self.cfg.periods_per_year > 0 else m.infer_periods(df.index)
+        ppy = self.cfg.periods_per_year
+        periods = ppy if ppy > 0 else m.infer_periods(df.index)
         metrics = {
             "total_return":  float(equity_curve.iloc[-1] / capital - 1),
             "cagr":          m.cagr(equity_curve),
@@ -580,6 +590,7 @@ class Backtester:
             if risk_manager is not None:
                 target_weight = risk_manager.adjust(
                     i, target_weight, equity, peak_equity,
+                    equity_curve=equity_arr[:i + 1],
                 )
 
             # 3b. ONE_POSITION_ONLY: skip same-direction signals
@@ -798,6 +809,7 @@ class Backtester:
                 raw_weights = {name: float(sigs_d[name][i]) for name in assets}
                 adj_weights = risk_manager.adjust_multi(
                     i, raw_weights, equity, peak_equity,
+                    equity_curve=equity_arr[:i + 1],
                 )
 
             # 4. Compute all fills, then execute sells before buys.
@@ -885,7 +897,8 @@ class Backtester:
         returns = equity_curve.pct_change().fillna(0.0)
         trade_pnls = trades_df["pnl"] if len(trades_df) > 0 else pd.Series(dtype=float)
         rf = self.cfg.risk_free_rate
-        periods = self.cfg.periods_per_year if self.cfg.periods_per_year > 0 else m.infer_periods(ref_index)
+        ppy = self.cfg.periods_per_year
+        periods = ppy if ppy > 0 else m.infer_periods(ref_index)
         metrics = {
             "total_return":  float(equity_curve.iloc[-1] / capital - 1),
             "cagr":          m.cagr(equity_curve),

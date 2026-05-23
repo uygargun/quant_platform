@@ -12,14 +12,13 @@ and summaries.
 """
 from __future__ import annotations
 
+import dataclasses
 import heapq
 import itertools
 import logging
 import multiprocessing as mp
 from collections.abc import Callable
 from dataclasses import dataclass, field
-
-import dataclasses
 
 import pandas as pd
 

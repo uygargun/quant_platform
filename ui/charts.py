@@ -508,6 +508,81 @@ def is_oos_comparison_chart(windows, target: str) -> go.Figure:
     return fig
 
 
+# ─── Portfolio optimization charts ──────────────────────────────────
+
+def efficient_frontier_chart(
+    random_vols: np.ndarray,
+    random_rets: np.ndarray,
+    random_sharpes: np.ndarray,
+    optimal_points: dict[str, tuple[float, float]],
+) -> go.Figure:
+    """Scatter plot of random portfolios with optimal points highlighted."""
+    fig = go.Figure()
+
+    fig.add_trace(go.Scatter(
+        x=random_vols, y=random_rets,
+        mode="markers",
+        marker=dict(
+            size=4, color=random_sharpes,
+            colorscale="RdYlGn", showscale=True,
+            colorbar=dict(title="Sharpe"),
+            opacity=0.6,
+        ),
+        name="Random Portfolios",
+        hovertemplate="Vol: %{x:.2%}<br>Return: %{y:.2%}<br><extra></extra>",
+    ))
+
+    markers = {"min_variance": ("#58a6ff", "star", "Min Variance"),
+               "max_sharpe": ("#3fb950", "diamond", "Max Sharpe"),
+               "risk_parity": ("#d29922", "cross", "Risk Parity"),
+               "equal": ("#8b949e", "circle", "Equal Weight")}
+    for method, (vol, ret) in optimal_points.items():
+        color, symbol, label = markers.get(method, ("#ffffff", "circle", method))
+        fig.add_trace(go.Scatter(
+            x=[vol], y=[ret],
+            mode="markers+text",
+            marker=dict(size=14, color=color, symbol=symbol,
+                        line=dict(width=2, color="white")),
+            text=[label], textposition="top center",
+            textfont=dict(color=color, size=11),
+            name=label,
+            hovertemplate=f"{label}<br>Vol: %{{x:.2%}}<br>Return: %{{y:.2%}}<extra></extra>",
+        ))
+
+    fig.update_layout(
+        title="Efficient Frontier",
+        xaxis_title="Annualised Volatility",
+        yaxis_title="Annualised Return",
+        xaxis_tickformat=".1%",
+        yaxis_tickformat=".1%",
+        height=480, margin=dict(l=60, r=30, t=50, b=40),
+        legend=dict(orientation="h", y=-0.15),
+        **PLOTLY_DARK,
+    )
+    return fig
+
+
+def weight_allocation_chart(
+    weights: dict[str, float],
+    title: str = "Portfolio Allocation",
+) -> go.Figure:
+    """Pie chart showing portfolio weight allocation."""
+    names = list(weights.keys())
+    values = list(weights.values())
+    fig = go.Figure(data=go.Pie(
+        labels=names, values=values,
+        hole=0.4,
+        textinfo="label+percent",
+        hovertemplate="%{label}: %{value:.2%}<extra></extra>",
+    ))
+    fig.update_layout(
+        title=title,
+        height=380, margin=dict(l=30, r=30, t=50, b=40),
+        **PLOTLY_DARK,
+    )
+    return fig
+
+
 # ─── Internal helpers ────────────────────────────────────────────────
 
 def _get_percentile(mc, p: int) -> pd.Series | None:

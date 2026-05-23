@@ -41,7 +41,8 @@ class BacktestConfig:
     volume_limit: float | None = None  # max fraction of bar volume per fill (e.g. 0.02 = 2%)
     compute_regimes: bool = True
     close_on_end: bool = False
-    periods_per_year: int = 0  # 0 = auto-infer from bar spacing; set explicitly for crypto (365) etc.
+    # 0 = auto-infer from bar spacing; set explicitly for crypto (365) etc.
+    periods_per_year: int = 0
 
     # Position management
     position_mode: PositionMode = PositionMode.PYRAMIDING

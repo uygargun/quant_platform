@@ -65,7 +65,9 @@ def render_research_results(out: dict, key_prefix: str = "res") -> None:
             <div class="strat-card {badge_cls}">
                 <div class="strat-title">
                     Trial #{s['trial_id']}
-                    <span class="decision-badge {badge_cls}" style="font-size:0.75rem; padding:4px 12px; margin-left:10px;">
+                    <span class="decision-badge {badge_cls}"
+                          style="font-size:0.75rem; padding:4px 12px;
+                                 margin-left:10px;">
                         {decision}
                     </span>
                     {holdout_tag}
@@ -80,7 +82,8 @@ def render_research_results(out: dict, key_prefix: str = "res") -> None:
                 <div style="display:flex; gap:32px; margin-top:10px;">
                     <div>
                         <span style="color:#8b949e; font-size:0.75rem;">SHARPE</span><br/>
-                        <span style="font-weight:700; font-size:1.1rem; color:{'#3fb950' if s['sharpe'] > 0 else '#f85149'};">
+                        <span style="font-weight:700; font-size:1.1rem;
+                              color:{'#3fb950' if s['sharpe'] > 0 else '#f85149'};">
                             {s['sharpe']:+.3f}
                         </span>
                     </div>
@@ -92,7 +95,8 @@ def render_research_results(out: dict, key_prefix: str = "res") -> None:
                     </div>
                     <div style="flex:1;">
                         <span style="color:#8b949e; font-size:0.75rem;">ROBUSTNESS</span>
-                        <span style="font-weight:700; font-size:0.85rem; color:{rob_color}; float:right;">
+                        <span style="font-weight:700; font-size:0.85rem;
+                              color:{rob_color}; float:right;">
                             {rob:.0f}/100
                         </span>
                         {components.robustness_bar(rob)}

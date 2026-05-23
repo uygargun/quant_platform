@@ -20,6 +20,7 @@ Usage:
 """
 from __future__ import annotations
 
+import logging
 import signal
 from dataclasses import dataclass, field
 
@@ -28,8 +29,10 @@ import pandas as pd
 from config import BacktestConfig
 from engine import metrics as m
 from engine.backtest import Backtester, Result
-from engine.optimizer import GridOptimizer, _CONFIG_PARAMS
+from engine.optimizer import _CONFIG_PARAMS, GridOptimizer
 from strategy.base import BaseStrategy
+
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -271,6 +274,11 @@ class WalkForwardOptimizer:
         Then stitch all test equity curves into one continuous series.
         """
         windows_spec = self.build_windows()
+        log.info(
+            "Walk-forward: %d bars, train=%d, test=%d, target=%s, %d folds",
+            len(self.df), self.train_bars, self.test_bars, target,
+            len(windows_spec),
+        )
         if not windows_spec:
             raise ValueError(
                 f"Not enough data for walk-forward: {len(self.df)} bars, "
@@ -327,7 +335,13 @@ class WalkForwardOptimizer:
     ) -> WalkForwardResult:
         for spec in windows_spec:
             if is_interrupted():
+                log.info("Walk-forward interrupted at fold %d", spec["fold"])
                 break
+
+            log.info("Fold %d/%d: train[%d:%d] test[%d:%d]",
+                     spec["fold"], len(windows_spec) - 1,
+                     spec["train_start"], spec["train_end"],
+                     spec["test_start"], spec["test_end"])
 
             train_df = self.df.iloc[spec["train_start"]:spec["train_end"]]
             test_df = self.df.iloc[spec["test_start"]:spec["test_end"]]
@@ -399,7 +413,10 @@ class WalkForwardOptimizer:
         returns = equity_curve.pct_change().fillna(0.0)
         trade_pnls = trades["pnl"] if len(trades) > 0 else pd.Series(dtype=float)
         rf = self.cfg.risk_free_rate
-        periods = self.cfg.periods_per_year if self.cfg.periods_per_year > 0 else m.infer_periods(equity_curve.index)
+        ppy = self.cfg.periods_per_year
+        periods = (
+            ppy if ppy > 0 else m.infer_periods(equity_curve.index)
+        )
         metrics = {
             "total_return":  float(equity_curve.iloc[-1] / initial - 1),
             "cagr":          m.cagr(equity_curve),

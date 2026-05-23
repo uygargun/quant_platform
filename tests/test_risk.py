@@ -516,3 +516,114 @@ class TestBackwardCompat:
         np.testing.assert_allclose(
             r1.equity_curve.values, r2.equity_curve.values, atol=1e-8,
         )
+
+
+# ------------------------------------------------------------------ #
+#  Kelly criterion (unit tests)                                       #
+# ------------------------------------------------------------------ #
+
+class TestKellyCriterion:
+
+    def _equity_curve(self, n, start=10000.0, daily_ret=0.001, seed=42):
+        """Generate a synthetic equity curve."""
+        np.random.seed(seed)
+        rets = np.random.normal(daily_ret, 0.01, n)
+        return start * np.cumprod(1 + rets)
+
+    def test_kelly_disabled(self):
+        """kelly_fraction=0 → signal unchanged."""
+        rm = RiskManager(kelly_fraction=0.0)
+        closes = _trending_prices(100)
+        rm.prepare(closes, pd.date_range("2024-01-01", periods=100))
+        eq = self._equity_curve(100)
+        w = rm.adjust(50, 0.8, eq[50], max(eq[:51]), equity_curve=eq[:51])
+        assert w == pytest.approx(0.8)
+
+    def test_kelly_no_equity_curve(self):
+        """If equity_curve is None, Kelly is skipped."""
+        rm = RiskManager(kelly_fraction=0.5, kelly_lookback=20)
+        closes = _trending_prices(100)
+        rm.prepare(closes, pd.date_range("2024-01-01", periods=100))
+        eq = self._equity_curve(100)
+        w = rm.adjust(50, 0.8, eq[50], max(eq[:51]), equity_curve=None)
+        assert w == pytest.approx(0.8)
+
+    def test_kelly_insufficient_data(self):
+        """Fewer bars than lookback → scale = 1.0, signal unchanged."""
+        rm = RiskManager(kelly_fraction=1.0, kelly_lookback=200)
+        closes = _trending_prices(100)
+        rm.prepare(closes, pd.date_range("2024-01-01", periods=100))
+        eq = self._equity_curve(100)
+        # bar=50 < lookback=200 → fallback to 1.0
+        w = rm.adjust(50, 0.8, eq[50], max(eq[:51]), equity_curve=eq[:51])
+        assert w == pytest.approx(0.8)
+
+    def test_kelly_positive_returns_scales(self):
+        """Positive mean returns should produce a scale > 0."""
+        rm = RiskManager(kelly_fraction=1.0, kelly_lookback=50)
+        closes = _trending_prices(200, daily_ret=0.002)
+        rm.prepare(closes, pd.date_range("2024-01-01", periods=200))
+        eq = self._equity_curve(200, daily_ret=0.002)
+        w = rm.adjust(100, 1.0, eq[100], max(eq[:101]), equity_curve=eq[:101])
+        # With positive returns, Kelly should scale the signal
+        assert w > 0.0
+
+    def test_kelly_half_vs_full(self):
+        """Half-Kelly produces exactly half the raw scaling of full Kelly."""
+        # Test _kelly_scale directly to avoid position clamp interference
+        np.random.seed(42)
+        # Use very noisy returns so f* stays moderate (below cap / fraction)
+        eq = 10000.0 * np.cumprod(1 + np.random.normal(0.00005, 0.03, 300))
+
+        rm_full = RiskManager(kelly_fraction=1.0, kelly_lookback=50)
+        scale_full = rm_full._kelly_scale(eq[:201], 200)
+
+        rm_half = RiskManager(kelly_fraction=0.5, kelly_lookback=50)
+        scale_half = rm_half._kelly_scale(eq[:201], 200)
+
+        # half-Kelly should be exactly half of full Kelly (before cap)
+        if scale_full < 2.0:
+            assert scale_half == pytest.approx(scale_full / 2.0, rel=1e-6)
+
+    def test_kelly_cap_at_2(self):
+        """Kelly scale is capped at 2.0."""
+        rm = RiskManager(kelly_fraction=1.0, kelly_lookback=20)
+        # Create an equity curve with very high Sharpe (high mean, low var)
+        eq = 10000.0 + np.arange(100) * 10.0  # perfectly linear upward
+        # Add tiny noise so var > 0
+        eq = eq + np.random.RandomState(42).randn(100) * 0.001
+        closes = _trending_prices(100)
+        rm.prepare(closes, pd.date_range("2024-01-01", periods=100))
+        w = rm.adjust(50, 1.0, eq[50], max(eq[:51]), equity_curve=eq[:51])
+        # Capped at 2.0, so weight should be <= 2.0
+        assert w <= 2.0 + 1e-10
+
+    def test_kelly_integration_backtest(self):
+        """Kelly-enabled backtest should complete without errors."""
+        closes = _trending_prices(300, daily_ret=0.001)
+        df = _make_ohlcv(closes)
+        sigs = np.full(300, 0.5)
+        signals = _make_signals(sigs, df.index)
+
+        rm = RiskManager(
+            kelly_fraction=0.5, kelly_lookback=50,
+            max_position_weight=2.0, max_leverage=3.0,
+        )
+        cfg = BacktestConfig(cost_model=ZeroCost(), risk_manager=rm)
+        result = Backtester(cfg).run(df, signals)
+        assert len(result.equity_curve) == 300
+        assert result.equity_curve.iloc[-1] > 0
+
+    def test_kelly_multi_asset(self):
+        """Kelly with adjust_multi should complete without errors."""
+        rm = RiskManager(kelly_fraction=0.5, kelly_lookback=20)
+        eq = self._equity_curve(100)
+        closes_a = _trending_prices(100, seed=1)
+        closes_b = _trending_prices(100, seed=2)
+        idx = pd.date_range("2024-01-01", periods=100)
+        rm.prepare_multi({"a": closes_a, "b": closes_b}, idx)
+        raw = {"a": 0.6, "b": 0.4}
+        adj = rm.adjust_multi(50, raw, eq[50], max(eq[:51]),
+                              equity_curve=eq[:51])
+        assert "a" in adj and "b" in adj
+        assert all(isinstance(v, float) for v in adj.values())

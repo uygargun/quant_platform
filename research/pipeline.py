@@ -25,8 +25,8 @@ from engine.optimizer import GridOptimizer
 from engine.regime import per_regime_metrics, robustness_score
 from engine.validation import deflated_sharpe
 from engine.walkforward import WalkForwardOptimizer
-from research.generator import StrategyGenerator
 from models.institutional import TrialAccounting, ValidationConfig
+from research.generator import StrategyGenerator
 
 logger = logging.getLogger(__name__)
 

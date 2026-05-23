@@ -298,10 +298,10 @@ class TestOptimizationService:
 # ---- Typed Response Architecture ----
 
 from services.responses import (
-    SelectedStrategyDetail,
+    MonteCarloStats as MCStats,
 )
 from services.responses import (
-    MonteCarloStats as MCStats,
+    SelectedStrategyDetail,
 )
 
 

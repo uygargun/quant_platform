@@ -54,6 +54,9 @@ research = [
     "jupyter>=1.0",
     "yfinance>=1.2",
 ]
+docs = [
+    "mkdocs-material>=9.0",
+]
 
 [project.scripts]
 # Unified entry point
@@ -91,6 +94,19 @@ select = [
     "UP",  # pyupgrade
     "B",   # flake8-bugbear
     "SIM", # flake8-simplify
+]
+ignore = [
+    "E402",   # module-level import not at top (used intentionally for lazy imports)
+    "E741",   # ambiguous variable name (l is clear in math/finance context)
+    "E702",   # multiple statements on one line (used in compact numba code)
+    "SIM102", # nested if (sometimes clearer than combined condition)
+    "SIM105", # contextlib.suppress (try/except/pass is fine)
+    "SIM108", # ternary operator (if/else blocks are clearer for multi-line)
+    "UP042",  # StrEnum (keep str+Enum for Python 3.10 compat)
+    "B905",   # zip strict (not needed for same-length internal arrays)
+    "B007",   # unused loop variable (intentional in some iteration patterns)
+    "B011",   # assert False (used in tests)
+    "SIM118", # key in dict vs dict.keys()
 ]
 
 # --- Pytest ---

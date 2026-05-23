@@ -295,7 +295,8 @@ class TestVolumeLimit:
         # Bar 3: delta = 100-40 = 60, capped to 20 → holdings = 60
         # Bar 4: signal=0 → target=0, delta=-60, capped to -20 → holdings = 40
         #   But signal at bar 3 is 1.0 → delta = 100-60 = 40, capped to 20 → fill 20 → holdings=80
-        #   Then bar 4 signal is 0 → target=0, but this fill happens hypothetically at bar 5 which doesn't exist
+        #   Then bar 4 signal is 0 -> target=0, but this fill
+        #   happens hypothetically at bar 5 which doesn't exist
 
         # Actually bar 4 is the last bar, so no fill happens.
         # Let me just verify no single-bar fill exceeds the cap.

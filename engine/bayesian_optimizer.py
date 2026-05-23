@@ -22,7 +22,7 @@ _log = logging.getLogger(__name__)
 
 from config import BacktestConfig
 from engine.backtest import Backtester, Result
-from engine.optimizer import OptimizationResult, _CONFIG_PARAMS, _native_types, _TopNHeap
+from engine.optimizer import _CONFIG_PARAMS, OptimizationResult, _native_types, _TopNHeap
 from strategy.base import BaseStrategy
 
 try:
