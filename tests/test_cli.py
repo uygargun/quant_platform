@@ -6,7 +6,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 import subprocess
 
-PYTHON = os.path.join(os.path.dirname(__file__), "..", ".venv", "bin", "python")
+PYTHON = sys.executable
 MAIN = os.path.join(os.path.dirname(__file__), "..", "main.py")
 SAMPLE = os.path.join(os.path.dirname(__file__), "..", "data", "sample.csv")
 
