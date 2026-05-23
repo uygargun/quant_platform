@@ -7,11 +7,13 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from pathlib import Path
 
 log = logging.getLogger(__name__)
 
 _PRESETS_DIR = Path("presets")
+_SAFE_NAME_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$")
 
 _PRESET_KEYS = [
     "strategy_name", "capital", "commission", "slippage",
@@ -39,15 +41,19 @@ def import_preset(json_str: str) -> dict:
     return {k: data[k] for k in _PRESET_KEYS if k in data}
 
 
+def sanitize_name(name: str) -> str:
+    """Replace non-alphanumeric chars with underscores."""
+    return re.sub(r"[^a-zA-Z0-9_-]", "_", name).strip("_") or "preset"
+
+
 def save_preset(ctx: dict, name: str) -> Path:
     """Save preset to the presets/ directory."""
     _PRESETS_DIR.mkdir(exist_ok=True)
-    safe_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in name)
-    if not safe_name:
-        raise ValueError("Preset name must contain at least one valid character")
-    path = (_PRESETS_DIR / f"{safe_name}.json").resolve()
-    if not path.is_relative_to(_PRESETS_DIR.resolve()):
-        raise ValueError("Invalid preset name")
+    clean = sanitize_name(name)
+    if not _SAFE_NAME_RE.match(clean):
+        raise ValueError("Preset name must start with a letter or digit")
+    filename = f"{clean}.json"
+    path = _PRESETS_DIR / filename
     path.write_text(export_preset(ctx, name))
     log.info("Preset saved: %s", path)
     return path
@@ -62,10 +68,11 @@ def list_presets() -> list[str]:
 
 def load_preset(name: str) -> dict:
     """Load a named preset from the presets/ directory."""
-    safe_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in name)
-    path = (_PRESETS_DIR / f"{safe_name}.json").resolve()
-    if not path.is_relative_to(_PRESETS_DIR.resolve()):
+    clean = sanitize_name(name)
+    if not _SAFE_NAME_RE.match(clean):
         raise ValueError("Invalid preset name")
+    filename = f"{clean}.json"
+    path = _PRESETS_DIR / filename
     if not path.exists():
         raise FileNotFoundError(f"Preset not found: {name}")
     return import_preset(path.read_text())

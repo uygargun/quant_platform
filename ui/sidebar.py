@@ -365,15 +365,22 @@ def render() -> dict:
     }
 
     with st.sidebar.expander("Presets", expanded=False):
-        from ui.presets import export_preset, list_presets, load_preset, save_preset
+        from ui.presets import (
+            export_preset,
+            list_presets,
+            load_preset,
+            sanitize_name,
+            save_preset,
+        )
 
         preset_name = st.text_input("Preset Name", value="", key="preset_name")
         pc1, pc2 = st.columns(2)
         with pc1:
             if st.button("Save", key="btn_save_preset", use_container_width=True):
-                if preset_name.strip():
-                    save_preset(ctx, preset_name.strip())
-                    st.success(f"Saved: {preset_name}")
+                clean = sanitize_name(preset_name)
+                if clean:
+                    save_preset(ctx, clean)
+                    st.success(f"Saved: {clean}")
                 else:
                     st.warning("Enter a name")
         with pc2:
