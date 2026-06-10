@@ -20,7 +20,7 @@ dependencies = [
     "python-dotenv>=1.0,<2",
 
     # --- Logging ---
-    "structlog>=24.0,<26",
+    "structlog>=24.0,<27",
 
     # --- Data layer ---
     "duckdb>=1.0,<2",
